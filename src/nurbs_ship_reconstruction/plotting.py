@@ -10,29 +10,27 @@ from matplotlib.collections import PolyCollection
 
 from .geometry import HullInput, Waterline, evaluate_waterline
 
-_GRAY_FACE = "#9a9a9a"
-_GRAY_EDGE = "#5c5c5c"
 
-
-def _triangles(mesh, axis_a: int, axis_b: int, view_axis: int, maximum: int = 25000) -> np.ndarray:
-    faces = mesh.faces
-    if len(faces) > maximum:
-        faces = faces[np.linspace(0, len(faces) - 1, maximum, dtype=int)]
-    triangles = mesh.vertices[faces]
-    order = np.argsort(triangles[:, :, view_axis].mean(axis=1))
-    return triangles[order][:, :, [axis_a, axis_b]]
+def _gray_poly(ax, mesh, axis_a: int, axis_b: int, view_axis: int) -> None:
+    faces = np.asarray(mesh.faces)
+    depth = mesh.vertices[faces][:, :, view_axis].mean(axis=1)
+    order = np.argsort(depth)
+    triangles = mesh.vertices[faces[order]][:, :, [axis_a, axis_b]]
+    view = np.zeros(3)
+    view[view_axis] = 1.0
+    shade = 0.40 + 0.45 * np.abs(mesh.face_normals[order] @ view)
+    ax.add_collection(
+        PolyCollection(
+            triangles,
+            facecolors=np.c_[shade, shade, shade],
+            edgecolors="none",
+            rasterized=True,
+        )
+    )
 
 
 def _gray_mesh(ax, mesh, axis_a: int, axis_b: int, view_axis: int) -> None:
-    ax.add_collection(
-        PolyCollection(
-            _triangles(mesh, axis_a, axis_b, view_axis),
-            facecolor=_GRAY_FACE,
-            edgecolor=_GRAY_EDGE,
-            linewidth=0.08,
-            alpha=1.0,
-        )
-    )
+    _gray_poly(ax, mesh, axis_a, axis_b, view_axis)
 
 
 def _side_view(ax, mesh, title: str, draft: float, limits) -> None:
@@ -44,7 +42,7 @@ def _side_view(ax, mesh, title: str, draft: float, limits) -> None:
     ax.set_xlim(*limits[0])
     ax.set_ylim(*limits[1])
     ax.set_aspect("equal")
-    ax.legend([draft_line], ["design draft"], fontsize=8)
+    ax.legend([draft_line], ["design draft"], fontsize=8, loc="upper right")
 
 
 def plot_comparison(
@@ -148,6 +146,6 @@ def plot_summary(rows: list[dict], output_path: Path) -> None:
     ax.set_title("Classic hull validation summary")
     ax.set_yscale("log")
     ax.grid(axis="y", alpha=0.25)
-    ax.legend()
+    ax.legend(loc="upper right")
     fig.savefig(output_path, dpi=180)
     plt.close(fig)

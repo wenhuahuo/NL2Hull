@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v009_classic_hulls_nurbs_skinning/`.
+Current full run: `outputs/v010_classic_hulls_nurbs_skinning/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -28,12 +28,13 @@ Earlier runs are kept as evidence:
 - `v006_classic_hulls_nurbs_skinning`: completed reconstruction before separate STL side views
 - `v007_classic_hulls_nurbs_skinning`: immersed reconstruction with scatter STL views
 - `v008_classic_hulls_nurbs_skinning`: full-height run stopped on NPL keel waterline split
+- `v009_classic_hulls_nurbs_skinning`: full-height reconstruction; original STL views still looked like scatter
 
 For a short smoke run:
 
 ```bash
 python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
-  --output outputs/v009_smoke_wigley_hull
+  --output outputs/v010_smoke_wigley_hull
 ```
 
 ## Method and scope
