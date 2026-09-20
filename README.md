@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v010_classic_hulls_nurbs_skinning/`.
+Current full run: `outputs/v011_classic_hulls_nurbs_skinning/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -29,12 +29,13 @@ Earlier runs are kept as evidence:
 - `v007_classic_hulls_nurbs_skinning`: immersed reconstruction with scatter STL views
 - `v008_classic_hulls_nurbs_skinning`: full-height run stopped on NPL keel waterline split
 - `v009_classic_hulls_nurbs_skinning`: full-height reconstruction; original STL views still looked like scatter
+- `v010_classic_hulls_nurbs_skinning`: original and lofted STLs drawn as shaded gray meshes
 
 For a short smoke run:
 
 ```bash
 python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
-  --output outputs/v010_smoke_wigley_hull
+  --output outputs/v011_smoke_wigley_hull
 ```
 
 ## Method and scope
@@ -61,14 +62,18 @@ python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
    contour NURBS models from the paper are not fitted independently; their
    effect is captured only through the extracted waterline endpoints.
    Comparison figures render both the source STL and the lofted reconstruction
-   as gray triangle meshes, not vertex scatter plots.
+   as gray triangle meshes, not vertex scatter plots. The center-plane
+   intersection of the source STL is split into stem and stern contours and
+   fitted with the paper's 14- and 19-control cubic NURBS models; those
+   feature lines are reported separately and do not replace waterline endpoints.
 
 Each hull result contains:
 
 - `source_parameters.json`: extracted waterline targets and NURBS control data;
 - `reconstructed_hull.stl`: lofted full-height hull;
 - `metrics.json`: bidirectional sampled vertex distances and waterline errors;
-- `comparison.png`: original and lofted gray-mesh plan/side views, waterline fit, and error bars.
+- `comparison.png`: original and lofted gray-mesh plan/side views, waterline fit, and error bars;
+- `profile_stem_stern.png`: center-plane extraction and stem/stern NURBS fit.
 
 The run root contains `run_manifest.json`, `benchmark_summary.csv/json`, and
 `benchmark_summary.png`. The manifest records input, output, status, job ID

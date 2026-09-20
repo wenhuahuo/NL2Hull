@@ -17,9 +17,10 @@ from .geometry import (
     skin_waterlines,
     waterline_record,
 )
-from .plotting import plot_comparison, plot_summary
+from .plotting import plot_comparison, plot_profile, plot_summary
+from .profile import fit_profile, profile_record
 
-REVISION = "v010_classic_hulls_nurbs_skinning"
+REVISION = "v011_classic_hulls_nurbs_skinning"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -98,7 +99,12 @@ def run_benchmark(
             levels = np.linspace(0.0, hull.depth, level_count)
             waterlines = [extract_waterline(hull, float(z)) for z in levels]
             reconstruction = skin_waterlines(waterlines)
+            profile = fit_profile(hull)
             metrics = compare_meshes(hull.mesh, reconstruction, waterlines)
+            metrics["stem_nurbs_rmse"] = profile.stem_nurbs["fit_rmse"]
+            metrics["stem_nurbs_max_error"] = profile.stem_nurbs["fit_max_error"]
+            metrics["stern_nurbs_rmse"] = profile.stern_nurbs["fit_rmse"]
+            metrics["stern_nurbs_max_error"] = profile.stern_nurbs["fit_max_error"]
             records = [waterline_record(waterline) for waterline in waterlines]
             parameters = {
                 "revision": revision,
@@ -121,6 +127,7 @@ def run_benchmark(
                 "level_count": level_count,
                 "control_model": "degree-3 clamped NURBS; 8 controls; P4=P5=P6",
                 "waterlines": records,
+                "profile": profile_record(profile),
             }
             reconstruction_path = case_output / "reconstructed_hull.stl"
             reconstruction.export(reconstruction_path)
@@ -133,6 +140,7 @@ def run_benchmark(
                 metrics,
                 case_output / "comparison.png",
             )
+            plot_profile(hull, profile, case_output / "profile_stem_stern.png")
             summary_rows.append({"hull_id": hull.hull_id, **metrics})
             case_record["status"] = "completed"
         except Exception as error:

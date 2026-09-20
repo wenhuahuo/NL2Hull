@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 
 from .geometry import HullInput, Waterline, evaluate_waterline
+from .nurbs import evaluate
+from .profile import ProfileFit
 
 
 def _gray_poly(ax, mesh, axis_a: int, axis_b: int, view_axis: int) -> None:
@@ -147,5 +149,38 @@ def plot_summary(rows: list[dict], output_path: Path) -> None:
     ax.set_yscale("log")
     ax.grid(axis="y", alpha=0.25)
     ax.legend(loc="upper right")
+    fig.savefig(output_path, dpi=180)
+    plt.close(fig)
+
+
+def plot_profile(hull: HullInput, fit: ProfileFit, output_path: Path) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+    for ax, name, points, nurbs, color in [
+        (axes[0], "Stem contour", fit.stem, fit.stem_nurbs, "tab:red"),
+        (axes[1], "Stern contour", fit.stern, fit.stern_nurbs, "tab:blue"),
+    ]:
+        ax.plot(fit.raw_xz[:, 0], fit.raw_xz[:, 1], ".", ms=0.6, alpha=0.12, color="0.4")
+        ax.plot(points[:, 0], points[:, 1], "k.", ms=2.5, label="extracted")
+        curve = evaluate(np.linspace(0.0, 1.0, 160), nurbs["control_points"], nurbs["weights"])
+        ax.plot(curve[:, 0], curve[:, 1], color=color, lw=1.8, label="NURBS fit")
+        ax.plot(
+            nurbs["control_points"][:, 0],
+            nurbs["control_points"][:, 1],
+            "o--",
+            color=color,
+            ms=4,
+            alpha=0.7,
+            label="controls",
+        )
+        ax.axhline(hull.draft, color="tab:red", ls="--", lw=0.7, label="design draft")
+        pad = 0.02
+        ax.set_xlim(points[:, 0].min() - pad, points[:, 0].max() + pad)
+        ax.set_ylim(points[:, 1].min() - pad, points[:, 1].max() + pad)
+        ax.set_title(f"{name}  RMSE={nurbs['fit_rmse']:.4f} L")
+        ax.set_xlabel("x / L")
+        ax.set_ylabel("z / L")
+        ax.set_aspect("equal")
+        ax.legend(fontsize=7, loc="upper right")
+    fig.suptitle(f"{hull.hull_id}: center-plane stem/stern extraction and NURBS fit")
     fig.savefig(output_path, dpi=180)
     plt.close(fig)
