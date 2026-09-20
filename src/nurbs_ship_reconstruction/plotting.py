@@ -10,6 +10,24 @@ import numpy as np
 from .geometry import HullInput, Waterline, evaluate_waterline
 
 
+def _subsample(vertices: np.ndarray, maximum: int = 20000) -> np.ndarray:
+    if len(vertices) <= maximum:
+        return vertices
+    return vertices[np.linspace(0, len(vertices) - 1, maximum, dtype=int)]
+
+
+def _side_view(ax, points: np.ndarray, title: str, draft: float, limits: tuple[tuple[float, float], tuple[float, float]]) -> None:
+    ax.scatter(points[:, 0], points[:, 2], s=0.15, alpha=0.35, c="tab:blue")
+    ax.axhline(draft, color="tab:red", linestyle="--", linewidth=0.8, label="design draft")
+    ax.set_title(title)
+    ax.set_xlabel("x / L")
+    ax.set_ylabel("z / L")
+    ax.set_xlim(*limits[0])
+    ax.set_ylim(*limits[1])
+    ax.set_aspect("equal")
+    ax.legend(fontsize=8)
+
+
 def plot_comparison(
     hull: HullInput,
     waterlines: list[Waterline],
@@ -17,14 +35,19 @@ def plot_comparison(
     metrics: dict,
     output_path: Path,
 ) -> None:
-    source = hull.mesh.vertices[hull.mesh.vertices[:, 2] <= hull.draft + 1e-8]
-    if len(source) > 12000:
-        source = source[np.linspace(0, len(source) - 1, 12000, dtype=int)]
-    rebuilt = reconstruction.vertices
-    if len(rebuilt) > 12000:
-        rebuilt = rebuilt[np.linspace(0, len(rebuilt) - 1, 12000, dtype=int)]
+    source_full = _subsample(hull.mesh.vertices)
+    source = _subsample(hull.mesh.vertices[hull.mesh.vertices[:, 2] <= hull.draft + 1e-8])
+    rebuilt = _subsample(reconstruction.vertices)
+    x_limits = (
+        min(source_full[:, 0].min(), rebuilt[:, 0].min()),
+        max(source_full[:, 0].max(), rebuilt[:, 0].max()),
+    )
+    z_limits = (
+        min(source_full[:, 2].min(), rebuilt[:, 2].min()),
+        max(source_full[:, 2].max(), rebuilt[:, 2].max()),
+    )
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12), constrained_layout=True)
     ax = axes[0, 0]
     ax.scatter(source[:, 0], source[:, 1], s=0.15, alpha=0.25, label="source STL")
     ax.scatter(rebuilt[:, 0], rebuilt[:, 1], s=0.15, alpha=0.25, label="NURBS skin")
@@ -38,12 +61,27 @@ def plot_comparison(
     ax.scatter(source[:, 0], source[:, 2], s=0.15, alpha=0.25, label="source STL")
     ax.scatter(rebuilt[:, 0], rebuilt[:, 2], s=0.15, alpha=0.25, label="NURBS skin")
     ax.axhline(hull.draft, color="tab:red", linestyle="--", linewidth=0.8, label="design draft")
-    ax.set_title("Profile view (immersed)")
+    ax.set_title("Overlay profile (immersed)")
     ax.set_xlabel("x / L")
     ax.set_ylabel("z / L")
     ax.legend(markerscale=10)
 
-    ax = axes[1, 0]
+    _side_view(
+        axes[1, 0],
+        source_full,
+        "Original STL side view",
+        hull.draft,
+        (x_limits, z_limits),
+    )
+    _side_view(
+        axes[1, 1],
+        rebuilt,
+        "Reconstructed STL side view",
+        hull.draft,
+        (x_limits, z_limits),
+    )
+
+    ax = axes[2, 0]
     selected = np.linspace(0, len(waterlines) - 1, min(6, len(waterlines)), dtype=int)
     for index in selected:
         x, width = evaluate_waterline(waterlines[index], samples=128)
@@ -54,7 +92,7 @@ def plot_comparison(
     ax.set_ylabel("half breadth / L")
     ax.legend(fontsize=7)
 
-    ax = axes[1, 1]
+    ax = axes[2, 1]
     names = ["surface\nRMSE", "surface\n95%", "width\nRMSE"]
     values = [
         metrics["surface_vertex_chamfer_rmse"],

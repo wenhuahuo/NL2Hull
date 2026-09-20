@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v006_classic_hulls_nurbs_skinning/`.
+Current full run: `outputs/v007_classic_hulls_nurbs_skinning/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -25,12 +25,13 @@ Earlier runs are kept as evidence:
 - `v003_classic_hulls_nurbs_skinning`: first completed reconstruction, free flat-section y
 - `v004_classic_hulls_nurbs_skinning`: locked a fake parallel midbody on every waterline
 - `v005_classic_hulls_nurbs_skinning`: extracted `Lpf` but still forced y = beam
+- `v006_classic_hulls_nurbs_skinning`: completed reconstruction before separate STL side views
 
 For a short smoke run:
 
 ```bash
 python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
-  --output outputs/v006_smoke_wigley_hull
+  --output outputs/v007_smoke_wigley_hull
 ```
 
 ## Method and scope
@@ -64,7 +65,7 @@ Each hull result contains:
 - `source_parameters.json`: extracted waterline targets and NURBS control data;
 - `reconstructed_immersed_hull.stl`: reconstructed skin;
 - `metrics.json`: bidirectional sampled vertex distances and waterline errors;
-- `comparison.png`: plan/profile/waterline/error visualization.
+- `comparison.png`: plan overlay, original STL side view, reconstructed STL side view, waterline fit, and error bars.
 
 The run root contains `run_manifest.json`, `benchmark_summary.csv/json`, and
 `benchmark_summary.png`. The manifest records input, output, status, job ID

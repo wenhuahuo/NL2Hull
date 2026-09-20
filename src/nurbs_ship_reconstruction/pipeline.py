@@ -19,7 +19,7 @@ from .geometry import (
 )
 from .plotting import plot_comparison, plot_summary
 
-REVISION = "v006_classic_hulls_nurbs_skinning"
+REVISION = "v007_classic_hulls_nurbs_skinning"
 
 
 def _write_json(path: Path, value: object) -> None:
