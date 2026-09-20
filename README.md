@@ -3,7 +3,7 @@
 This project reproduces the vertical parameterization idea in
 `docs/related_works/j.issn.1673-3185.2017.05.004-2026-09-18_06-16-25.md`:
 source STL waterlines are reduced to low-dimensional degree-3 NURBS curves,
-then skinned through the design-draft levels.
+then skinned from baseline to deck.
 
 ## Run
 
@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v007_classic_hulls_nurbs_skinning/`.
+Current full run: `outputs/v009_classic_hulls_nurbs_skinning/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -26,12 +26,14 @@ Earlier runs are kept as evidence:
 - `v004_classic_hulls_nurbs_skinning`: locked a fake parallel midbody on every waterline
 - `v005_classic_hulls_nurbs_skinning`: extracted `Lpf` but still forced y = beam
 - `v006_classic_hulls_nurbs_skinning`: completed reconstruction before separate STL side views
+- `v007_classic_hulls_nurbs_skinning`: immersed reconstruction with scatter STL views
+- `v008_classic_hulls_nurbs_skinning`: full-height run stopped on NPL keel waterline split
 
 For a short smoke run:
 
 ```bash
 python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
-  --output outputs/v007_smoke_wigley_hull
+  --output outputs/v009_smoke_wigley_hull
 ```
 
 ## Method and scope
@@ -54,18 +56,18 @@ python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
    NURBS variables. Area and centroid are still computed as extracted control
    parameters and reported as reconstruction errors.
 4. The fitted waterlines are mirrored about the extracted centerline and
-   skinned from baseline to the dataset's reviewed draft fraction. The output
-   is therefore an immersed hull surface, not a reconstruction of the deck
-   above design draft. Stem/stern contour NURBS models from the paper are not
-   fitted independently; their effect is captured only through the extracted
-   waterline endpoints.
+   skinned from baseline to the source-STL deck (`z = depth`). Stem/stern
+   contour NURBS models from the paper are not fitted independently; their
+   effect is captured only through the extracted waterline endpoints.
+   Comparison figures render both the source STL and the lofted reconstruction
+   as gray triangle meshes, not vertex scatter plots.
 
 Each hull result contains:
 
 - `source_parameters.json`: extracted waterline targets and NURBS control data;
-- `reconstructed_immersed_hull.stl`: reconstructed skin;
+- `reconstructed_hull.stl`: lofted full-height hull;
 - `metrics.json`: bidirectional sampled vertex distances and waterline errors;
-- `comparison.png`: plan overlay, original STL side view, reconstructed STL side view, waterline fit, and error bars.
+- `comparison.png`: original and lofted gray-mesh plan/side views, waterline fit, and error bars.
 
 The run root contains `run_manifest.json`, `benchmark_summary.csv/json`, and
 `benchmark_summary.png`. The manifest records input, output, status, job ID

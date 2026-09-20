@@ -247,18 +247,21 @@ def extract_waterline(hull: HullInput, z: float, bins: int = 512) -> Waterline:
     # Avoid exact coplanar numerical cases while retaining the requested z in
     # the artifact metadata.
     section_z = z
-    if z <= hull.draft / 32.0:
+    if z <= hull.depth / 32.0:
         # A triangulated STL can touch the baseline at only a handful of
-        # vertices. Use the first resolvable immersed slice for that boundary
-        # row while retaining z=0 in the recorded parameter set.
-        section_z = hull.draft / 32.0
-    elif z >= hull.depth:
-        section_z = hull.depth * (1.0 - 1e-6)
+        # vertices. Use the first resolvable slice for that boundary row while
+        # retaining z=0 in the recorded parameter set.
+        section_z = hull.depth / 32.0
+    elif z >= hull.depth * (31.0 / 32.0):
+        # The deck plane of a triangulated STL is often coplanar with only a
+        # handful of faces. Mirror the baseline offset so the top row still
+        # cuts a resolvable hull section.
+        section_z = hull.depth * (31.0 / 32.0)
     section = hull.mesh.section(
         plane_normal=[0.0, 0.0, 1.0], plane_origin=[0.0, 0.0, section_z]
     )
     x, width = _section_width(section, bins=bins)
-    center = 0.5 if x[0] <= 0.5 <= x[-1] else float((x[0] + x[-1]) / 2.0)
+    center = float((x[0] + x[-1]) / 2.0)
     after_x, after_y = _resample_half(x, width, float(x[0]), center)
     fore_x, fore_y = _resample_half(x, width, center, float(x[-1]))
     after = _fit_half(after_x, after_y)

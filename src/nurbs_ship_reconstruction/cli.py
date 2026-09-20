@@ -24,7 +24,7 @@ def main() -> None:
     )
     parser.add_argument("--hull", action="append", help="run one hull; repeat for several")
     parser.add_argument(
-        "--levels", type=int, default=33, help="number of draft waterline levels"
+        "--levels", type=int, default=33, help="number of waterline levels from baseline to deck"
     )
     args = parser.parse_args()
     if args.levels < 8:

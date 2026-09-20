@@ -19,7 +19,7 @@ from .geometry import (
 )
 from .plotting import plot_comparison, plot_summary
 
-REVISION = "v007_classic_hulls_nurbs_skinning"
+REVISION = "v009_classic_hulls_nurbs_skinning"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -95,7 +95,7 @@ def run_benchmark(
         try:
             hull = load_hull(case_dir)
             case_record["input_stl"] = str(hull.stl_path)
-            levels = np.linspace(0.0, hull.draft, level_count)
+            levels = np.linspace(0.0, hull.depth, level_count)
             waterlines = [extract_waterline(hull, float(z)) for z in levels]
             reconstruction = skin_waterlines(waterlines)
             metrics = compare_meshes(hull.mesh, reconstruction, waterlines)
@@ -122,7 +122,7 @@ def run_benchmark(
                 "control_model": "degree-3 clamped NURBS; 8 controls; P4=P5=P6",
                 "waterlines": records,
             }
-            reconstruction_path = case_output / "reconstructed_immersed_hull.stl"
+            reconstruction_path = case_output / "reconstructed_hull.stl"
             reconstruction.export(reconstruction_path)
             _write_json(case_output / "source_parameters.json", parameters)
             _write_json(case_output / "metrics.json", metrics)
