@@ -204,6 +204,7 @@ def _fit_contour(
     coincident: tuple[tuple[int, ...], ...],
     knots: np.ndarray | None = None,
     model: str | None = None,
+    feature_parameters: dict[str, float] | None = None,
 ) -> dict:
     target = _resample(points, 80)
     chord = np.r_[0.0, np.cumsum(np.hypot(*np.diff(target, axis=0).T))]
@@ -255,6 +256,7 @@ def _fit_contour(
         "knots": clamped_knots(control_count) if knots is None else knots,
         "parameter": parameter,
         "model": model or f"fixed degree-3 clamped B-spline; {control_count} controls",
+        "feature_parameters": feature_parameters or {},
         "fit_rmse": float(np.sqrt(np.mean(np.sum((fitted - target) ** 2, axis=1)))),
         "fit_max_error": float(np.max(np.linalg.norm(fitted - target, axis=1))),
         "x_keel": float(control[0, 0]),
@@ -270,6 +272,8 @@ def _fit_contour(
 
 def fit_profile(hull: HullInput) -> ProfileFit:
     raw, stem, stern = extract_stem_stern(hull)
+    bulb_parameter = _bulb_parameter(stem)
+    deck_parameter = _deck_corner_parameter(stem)
     return ProfileFit(
         raw_xz=raw,
         stem=stem,
@@ -279,23 +283,30 @@ def fit_profile(hull: HullInput) -> ProfileFit:
             PROFILE_CONTROL_COUNT,
             (),
             knots=_combined_feature_knots(
-                PROFILE_CONTROL_COUNT,
-                _bulb_parameter(stem),
-                _deck_corner_parameter(stem),
+                PROFILE_CONTROL_COUNT, bulb_parameter, deck_parameter
             ),
             model=(
                 "fixed degree-3 B-spline; 32 controls; repeated deck knot; "
                 "local bulb knots"
             ),
+            feature_parameters={
+                "bulb_parameter": bulb_parameter,
+                "deck_parameter": deck_parameter,
+            },
         ),
         stern_nurbs=_fit_contour(stern, PROFILE_CONTROL_COUNT, ()),
     )
 
 
 def profile_parameter_vector(fit: ProfileFit) -> np.ndarray:
+    features = fit.stem_nurbs["feature_parameters"]
+    if set(features) != {"bulb_parameter", "deck_parameter"}:
+        raise ValueError("profile fit has no fixed stem feature parameters")
     return np.r_[
         fit.stem_nurbs["control_points"].ravel(),
         fit.stern_nurbs["control_points"].ravel(),
+        features["bulb_parameter"],
+        features["deck_parameter"],
     ]
 
 
@@ -303,14 +314,18 @@ def evaluate_profile_parameters(
     vector: np.ndarray, samples: int = 160
 ) -> tuple[np.ndarray, np.ndarray]:
     values = np.asarray(vector, dtype=float).ravel()
-    expected = 4 * PROFILE_CONTROL_COUNT
+    control_dimension = 4 * PROFILE_CONTROL_COUNT
+    expected = control_dimension + 2
     if len(values) != expected:
         raise ValueError(f"profile parameter vector must have length {expected}")
     split = 2 * PROFILE_CONTROL_COUNT
     stem = values[:split].reshape(PROFILE_CONTROL_COUNT, 2)
-    stern = values[split:].reshape(PROFILE_CONTROL_COUNT, 2)
+    stern = values[split:control_dimension].reshape(PROFILE_CONTROL_COUNT, 2)
+    knots = _combined_feature_knots(
+        PROFILE_CONTROL_COUNT, values[-2], values[-1]
+    )
     parameters = np.linspace(0.0, 1.0, samples)
-    return evaluate(parameters, stem), evaluate(parameters, stern)
+    return evaluate(parameters, stem, knots=knots), evaluate(parameters, stern)
 
 
 def profile_record(fit: ProfileFit) -> dict:
@@ -321,6 +336,7 @@ def profile_record(fit: ProfileFit) -> dict:
             "weights": nurbs["weights"].tolist(),
             "knots": nurbs["knots"].tolist(),
             "model": nurbs["model"],
+            "feature_parameters": nurbs["feature_parameters"],
             "fit_rmse": nurbs["fit_rmse"],
             "fit_max_error": nurbs["fit_max_error"],
             "x_keel": nurbs["x_keel"],
@@ -338,7 +354,9 @@ def profile_record(fit: ProfileFit) -> dict:
         "center_plane_y": CENTER_PLANE_Y,
         "control_count_per_contour": PROFILE_CONTROL_COUNT,
         "parameter_dimension": int(vector.size),
-        "parameter_layout": "stem x,z controls followed by stern x,z controls",
+        "parameter_layout": (
+            "stem x,z controls, stern x,z controls, bulb parameter, deck parameter"
+        ),
         "parameter_vector": vector.tolist(),
         "stem_model": fit.stem_nurbs["model"],
         "stern_model": fit.stern_nurbs["model"],

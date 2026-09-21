@@ -57,8 +57,16 @@ def test_fixed_profile_contour_has_shared_parameter_dimension():
 def test_profile_parameter_vector_round_trips_fixed_controls():
     z = np.linspace(0.0, 0.1, 60)
     points = np.column_stack([0.9 + 0.05 * z, z])
-    stem = _fit_contour(points, PROFILE_CONTROL_COUNT, ())
-    stern = _fit_contour(points[:, [0, 1]] * [0.1, 1.0], PROFILE_CONTROL_COUNT, ())
+    stem = _fit_contour(
+        points,
+        PROFILE_CONTROL_COUNT,
+        (),
+        knots=_combined_feature_knots(PROFILE_CONTROL_COUNT, 0.44, 0.60),
+        feature_parameters={"bulb_parameter": 0.44, "deck_parameter": 0.60},
+    )
+    stern = _fit_contour(
+        points[:, [0, 1]] * [0.1, 1.0], PROFILE_CONTROL_COUNT, ()
+    )
     fit = ProfileFit(
         raw_xz=np.empty((0, 2)),
         stem=points,
@@ -70,7 +78,7 @@ def test_profile_parameter_vector_round_trips_fixed_controls():
     stem_curve, stern_curve = evaluate_profile_parameters(vector, samples=11)
     np.testing.assert_allclose(stem_curve[0], stem["control_points"][0])
     np.testing.assert_allclose(stern_curve[-1], stern["control_points"][-1])
-    assert len(vector) == 4 * PROFILE_CONTROL_COUNT
+    assert len(vector) == 4 * PROFILE_CONTROL_COUNT + 2
 
 
 def test_combined_feature_fit_preserves_custom_model_label():

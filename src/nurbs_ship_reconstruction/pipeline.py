@@ -20,7 +20,7 @@ from .geometry import (
 from .plotting import plot_comparison, plot_profile, plot_summary
 from .profile import fit_profile, profile_record
 
-REVISION = "v018b_fixed_profile_combined_features"
+REVISION = "v019d_profile_constrained_loft"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -96,10 +96,12 @@ def run_benchmark(
         try:
             hull = load_hull(case_dir)
             case_record["input_stl"] = str(hull.stl_path)
-            levels = np.linspace(0.0, hull.depth, level_count)
-            waterlines = [extract_waterline(hull, float(z)) for z in levels]
-            reconstruction = skin_waterlines(waterlines)
             profile = fit_profile(hull)
+            levels = np.linspace(0.0, hull.depth, level_count)
+            waterlines = [
+                extract_waterline(hull, float(z), profile=profile) for z in levels
+            ]
+            reconstruction = skin_waterlines(waterlines)
             metrics = compare_meshes(hull.mesh, reconstruction, waterlines)
             metrics["stem_nurbs_rmse"] = profile.stem_nurbs["fit_rmse"]
             metrics["stem_nurbs_max_error"] = profile.stem_nurbs["fit_max_error"]

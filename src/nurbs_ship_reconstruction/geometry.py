@@ -243,7 +243,9 @@ def _integral_parameters(x: np.ndarray, width: np.ndarray) -> tuple[float, float
     return area, centroid_x, centroid_y
 
 
-def extract_waterline(hull: HullInput, z: float, bins: int = 512) -> Waterline:
+def extract_waterline(
+    hull: HullInput, z: float, bins: int = 512, profile: object | None = None
+) -> Waterline:
     # Avoid exact coplanar numerical cases while retaining the requested z in
     # the artifact metadata.
     section_z = z
@@ -264,6 +266,13 @@ def extract_waterline(hull: HullInput, z: float, bins: int = 512) -> Waterline:
     center = float((x[0] + x[-1]) / 2.0)
     after_x, after_y = _resample_half(x, width, float(x[0]), center)
     fore_x, fore_y = _resample_half(x, width, center, float(x[-1]))
+    if profile is not None:
+        stern_x = _profile_x_at_z(profile.stern_nurbs, float(z), "min")
+        stem_x = _profile_x_at_z(profile.stem_nurbs, float(z), "max")
+        if stern_x is not None:
+            after_x[0], after_y[0] = stern_x, 0.0
+        if stem_x is not None:
+            fore_x[-1], fore_y[-1] = stem_x, 0.0
     after = _fit_half(after_x, after_y)
     fore = _fit_half(fore_x[::-1], fore_y[::-1])
     area, centroid_x, centroid_y = _integral_parameters(x, width)
@@ -310,6 +319,37 @@ def waterline_record(waterline: Waterline) -> dict:
         "afterbody": serialize_half(waterline.after),
         "forebody": serialize_half(waterline.fore),
     }
+
+
+def _profile_x_at_z(
+    profile_curve: dict, z: float, side: str
+) -> float | None:
+    parameters = np.linspace(0.0, 1.0, 1024)
+    points = evaluate(
+        parameters,
+        np.asarray(profile_curve["control_points"]),
+        np.asarray(profile_curve["weights"]),
+        knots=np.asarray(profile_curve["knots"]),
+    )
+    if z < points[:, 1].min() or z > points[:, 1].max():
+        return None
+    lower = points[:-1, 1]
+    upper = points[1:, 1]
+    crossings = np.flatnonzero((lower - z) * (upper - z) <= 0.0)
+    values = []
+    for index in crossings:
+        if abs(upper[index] - lower[index]) <= 1e-12:
+            values.extend((points[index, 0], points[index + 1, 0]))
+        else:
+            fraction = (z - lower[index]) / (upper[index] - lower[index])
+            values.append(points[index, 0] + fraction * (points[index + 1, 0] - points[index, 0]))
+    if not values:
+        return None
+    if side == "min":
+        return float(min(values))
+    if side == "max":
+        return float(max(values))
+    raise ValueError("profile side must be 'min' or 'max'")
 
 
 def evaluate_waterline(waterline: Waterline, samples: int = 96) -> tuple[np.ndarray, np.ndarray]:
