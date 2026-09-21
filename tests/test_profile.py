@@ -2,11 +2,15 @@ import numpy as np
 
 from nurbs_ship_reconstruction.nurbs import evaluate
 from nurbs_ship_reconstruction.profile import (
+    PROFILE_CONTROL_COUNT,
+    ProfileFit,
     STEM_COINCIDENT,
     STERN_COINCIDENT,
     _fit_contour,
     _groups,
     _range_contour,
+    evaluate_profile_parameters,
+    profile_parameter_vector,
 )
 
 
@@ -38,6 +42,34 @@ def test_range_contour_stitches_fore_and_aft_segments():
     assert contour[-1, 1] == 1.0
     assert contour[:, 0].min() >= 0.65
     assert len(contour) == len(lower) + len(upper)
+
+
+def test_fixed_profile_contour_has_shared_parameter_dimension():
+    z = np.linspace(0.0, 0.1, 60)
+    points = np.column_stack([0.9 + 0.05 * z, z])
+    fit = _fit_contour(points, PROFILE_CONTROL_COUNT, ())
+    assert len(fit["control_points"]) == PROFILE_CONTROL_COUNT
+    assert len(fit["weights"]) == PROFILE_CONTROL_COUNT
+    assert fit["model"] == "fixed degree-3 clamped B-spline; 24 controls"
+
+
+def test_profile_parameter_vector_round_trips_fixed_controls():
+    z = np.linspace(0.0, 0.1, 60)
+    points = np.column_stack([0.9 + 0.05 * z, z])
+    stem = _fit_contour(points, PROFILE_CONTROL_COUNT, ())
+    stern = _fit_contour(points[:, [0, 1]] * [0.1, 1.0], PROFILE_CONTROL_COUNT, ())
+    fit = ProfileFit(
+        raw_xz=np.empty((0, 2)),
+        stem=points,
+        stern=points,
+        stem_nurbs=stem,
+        stern_nurbs=stern,
+    )
+    vector = profile_parameter_vector(fit)
+    stem_curve, stern_curve = evaluate_profile_parameters(vector, samples=11)
+    np.testing.assert_allclose(stem_curve[0], stem["control_points"][0])
+    np.testing.assert_allclose(stern_curve[-1], stern["control_points"][-1])
+    assert len(vector) == 4 * PROFILE_CONTROL_COUNT
 
 
 def test_stern_triples_are_coincident_after_fit():

@@ -13,6 +13,7 @@ from .nurbs import evaluate
 CENTER_PLANE_Y = 1e-4
 STEM_X_MIN = 0.65
 STERN_X_MAX = 0.35
+PROFILE_CONTROL_COUNT = 24
 # Paper 2.2: stem has 14 controls with two double vertices; stern has 19
 # controls with two triples and one double vertex.
 STEM_COINCIDENT = ((4, 5), (9, 10))
@@ -191,6 +192,7 @@ def _fit_contour(points: np.ndarray, control_count: int, coincident: tuple[tuple
         "control_points": control,
         "weights": np.ones(control_count),
         "parameter": parameter,
+        "model": f"fixed degree-3 clamped B-spline; {control_count} controls",
         "fit_rmse": float(np.sqrt(np.mean(np.sum((fitted - target) ** 2, axis=1)))),
         "fit_max_error": float(np.max(np.linalg.norm(fitted - target, axis=1))),
         "x_keel": float(control[0, 0]),
@@ -210,9 +212,30 @@ def fit_profile(hull: HullInput) -> ProfileFit:
         raw_xz=raw,
         stem=stem,
         stern=stern,
-        stem_nurbs=_fit_contour(stem, 14, STEM_COINCIDENT),
-        stern_nurbs=_fit_contour(stern, 19, STERN_COINCIDENT),
+        stem_nurbs=_fit_contour(stem, PROFILE_CONTROL_COUNT, ()),
+        stern_nurbs=_fit_contour(stern, PROFILE_CONTROL_COUNT, ()),
     )
+
+
+def profile_parameter_vector(fit: ProfileFit) -> np.ndarray:
+    return np.r_[
+        fit.stem_nurbs["control_points"].ravel(),
+        fit.stern_nurbs["control_points"].ravel(),
+    ]
+
+
+def evaluate_profile_parameters(
+    vector: np.ndarray, samples: int = 160
+) -> tuple[np.ndarray, np.ndarray]:
+    values = np.asarray(vector, dtype=float).ravel()
+    expected = 4 * PROFILE_CONTROL_COUNT
+    if len(values) != expected:
+        raise ValueError(f"profile parameter vector must have length {expected}")
+    split = 2 * PROFILE_CONTROL_COUNT
+    stem = values[:split].reshape(PROFILE_CONTROL_COUNT, 2)
+    stern = values[split:].reshape(PROFILE_CONTROL_COUNT, 2)
+    parameters = np.linspace(0.0, 1.0, samples)
+    return evaluate(parameters, stem), evaluate(parameters, stern)
 
 
 def profile_record(fit: ProfileFit) -> dict:
@@ -221,6 +244,7 @@ def profile_record(fit: ProfileFit) -> dict:
             "extracted": points.tolist(),
             "control_points": nurbs["control_points"].tolist(),
             "weights": nurbs["weights"].tolist(),
+            "model": nurbs["model"],
             "fit_rmse": nurbs["fit_rmse"],
             "fit_max_error": nurbs["fit_max_error"],
             "x_keel": nurbs["x_keel"],
@@ -233,10 +257,15 @@ def profile_record(fit: ProfileFit) -> dict:
             },
         }
 
+    vector = profile_parameter_vector(fit)
     return {
         "center_plane_y": CENTER_PLANE_Y,
-        "stem_model": "degree-3 clamped NURBS; 14 controls; V5=V6, V10=V11",
-        "stern_model": "degree-3 clamped NURBS; 19 controls; V4-6, V7-9, V12-13, V16-18 coincident",
+        "control_count_per_contour": PROFILE_CONTROL_COUNT,
+        "parameter_dimension": int(vector.size),
+        "parameter_layout": "stem x,z controls followed by stern x,z controls",
+        "parameter_vector": vector.tolist(),
+        "stem_model": fit.stem_nurbs["model"],
+        "stern_model": fit.stern_nurbs["model"],
         "stem": pack("stem", fit.stem, fit.stem_nurbs),
         "stern": pack("stern", fit.stern, fit.stern_nurbs),
     }
