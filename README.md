@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v011_classic_hulls_nurbs_skinning/`.
+Current full run: `outputs/v012_range_profile_extraction/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -30,6 +30,8 @@ Earlier runs are kept as evidence:
 - `v008_classic_hulls_nurbs_skinning`: full-height run stopped on NPL keel waterline split
 - `v009_classic_hulls_nurbs_skinning`: full-height reconstruction; original STL views still looked like scatter
 - `v010_classic_hulls_nurbs_skinning`: original and lofted STLs drawn as shaded gray meshes
+- `v011_classic_hulls_nurbs_skinning`: center-plane 14/19-point stem/stern extraction and fit
+- `v012_range_profile_extraction`: complete ordered fore/aft x-range extraction before the existing 14/19-point fit
 
 For a short smoke run:
 

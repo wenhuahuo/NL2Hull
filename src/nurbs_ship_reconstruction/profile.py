@@ -53,84 +53,74 @@ def _path_length(points: np.ndarray) -> float:
     return float(np.hypot(*np.diff(points, axis=0).T).sum())
 
 
-def _arc(poly: np.ndarray, i0: int, i1: int) -> tuple[np.ndarray, np.ndarray]:
-    n = len(poly)
-    forward = [i0]
-    i = i0
-    while i != i1:
-        i = (i + 1) % n
-        forward.append(i)
-        if len(forward) > n:
-            break
-    backward = [i0]
-    i = i0
-    while i != i1:
-        i = (i - 1) % n
-        backward.append(i)
-        if len(backward) > n:
-            break
-    return poly[np.asarray(forward)], poly[np.asarray(backward)]
-
-
-def _choose_arc(first: np.ndarray, second: np.ndarray, high_x: bool) -> np.ndarray:
-    def key(points: np.ndarray) -> tuple[float, float]:
-        mean_x = float(points[:, 0].mean())
-        return (mean_x if high_x else -mean_x, -_path_length(points))
-
-    return first if key(first) >= key(second) else second
-
-
-def _extreme_index(poly: np.ndarray, mask: np.ndarray, take_max: bool) -> int:
-    subset = poly[mask]
-    if len(subset) == 0:
-        raise ValueError("profile band is empty")
-    local = int(np.argmax(subset[:, 0]) if take_max else np.argmin(subset[:, 0]))
-    return int(np.flatnonzero(mask)[local])
-
-
-def _split_loop(poly: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    z = poly[:, 1]
-    span = max(float(np.ptp(z)), 1e-12)
-    keel = z <= z.min() + 0.12 * span
-    deck = z >= z.min() + 0.55 * span
-    keel_bow = _extreme_index(poly, keel, True)
-    keel_stern = _extreme_index(poly, keel, False)
-    deck_bow = _extreme_index(poly, deck, True)
-    deck_stern = _extreme_index(poly, deck, False)
-    stem = _choose_arc(*_arc(poly, keel_bow, deck_bow), high_x=True)
-    stern = _choose_arc(*_arc(poly, keel_stern, deck_stern), high_x=False)
-    return stem, stern
-
-
-def _trim(points: np.ndarray, x_min: float | None, x_max: float | None) -> np.ndarray:
+def _range_segments(
+    points: np.ndarray, x_min: float | None, x_max: float | None
+) -> list[np.ndarray]:
     mask = np.ones(len(points), dtype=bool)
     if x_min is not None:
         mask &= points[:, 0] >= x_min
     if x_max is not None:
         mask &= points[:, 0] <= x_max
-    if mask.sum() < 4:
-        raise ValueError("trimmed profile contour has too few samples")
-    # Keep the longest contiguous run so a loop fragment does not jump.
-    runs = np.split(np.flatnonzero(mask), np.where(np.diff(np.flatnonzero(mask)) > 1)[0] + 1)
-    keep = max(runs, key=len)
-    curve = points[keep]
-    if curve[0, 1] > curve[-1, 1]:
-        curve = curve[::-1]
-    return curve
+    indices = np.flatnonzero(mask)
+    if len(indices) < 4:
+        return []
+    runs = np.split(indices, np.where(np.diff(indices) > 1)[0] + 1)
+    if np.linalg.norm(points[0] - points[-1]) <= 1e-8 and len(runs) > 1:
+        if runs[0][0] == 0 and runs[-1][-1] == len(points) - 1:
+            runs = [np.r_[runs[-1], runs[0][1:]], *runs[1:-1]]
+    return [points[run] for run in runs if len(run) >= 4]
+
+
+def _stitch_segments(segments: list[np.ndarray]) -> np.ndarray:
+    if not segments:
+        raise ValueError("profile range has too few samples")
+    start = max(range(len(segments)), key=lambda index: _path_length(segments[index]))
+    chain = segments[start].copy()
+    remaining = [segment for index, segment in enumerate(segments) if index != start]
+    while remaining:
+        best: tuple[float, int, str, bool] | None = None
+        for index, segment in enumerate(remaining):
+            candidates = (
+                (np.linalg.norm(chain[-1] - segment[0]), "append", False),
+                (np.linalg.norm(chain[-1] - segment[-1]), "append", True),
+                (np.linalg.norm(chain[0] - segment[-1]), "prepend", False),
+                (np.linalg.norm(chain[0] - segment[0]), "prepend", True),
+            )
+            for distance, side, reverse in candidates:
+                candidate = (float(distance), index, side, reverse)
+                if best is None or candidate[0] < best[0]:
+                    best = candidate
+        _, index, side, reverse = best
+        segment = remaining.pop(index)
+        if reverse:
+            segment = segment[::-1]
+        if side == "append":
+            chain = np.vstack([chain, segment])
+        else:
+            chain = np.vstack([segment, chain])
+    if chain[0, 1] > chain[-1, 1]:
+        chain = chain[::-1]
+    return chain
+
+
+def _range_contour(
+    curves: list[np.ndarray], x_min: float | None, x_max: float | None
+) -> np.ndarray:
+    segments = [
+        segment
+        for curve in curves
+        for segment in _range_segments(curve, x_min, x_max)
+    ]
+    return _stitch_segments(segments)
 
 
 def extract_stem_stern(hull: HullInput) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return raw center-plane points plus ordered stem and stern polylines in x-z."""
+    """Return complete ordered center-plane contours within fore/aft x ranges."""
     curves = _polylines(hull.mesh)
     raw = np.vstack(curves)
-    longest = curves[0]
-    is_loop = longest[:, 0].min() < 0.3 and longest[:, 0].max() > 0.7
-    if is_loop:
-        stem, stern = _split_loop(longest)
-    else:
-        stem = max(curves[:4], key=lambda points: float(points[:, 0].max()))
-        stern = min(curves[:4], key=lambda points: float(points[:, 0].min()))
-    return raw, _trim(stem, STEM_X_MIN, None), _trim(stern, None, STERN_X_MAX)
+    stem = _range_contour(curves, STEM_X_MIN, None)
+    stern = _range_contour(curves, None, STERN_X_MAX)
+    return raw, stem, stern
 
 
 def _resample(points: np.ndarray, count: int) -> np.ndarray:

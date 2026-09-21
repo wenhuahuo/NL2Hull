@@ -6,6 +6,7 @@ from nurbs_ship_reconstruction.profile import (
     STERN_COINCIDENT,
     _fit_contour,
     _groups,
+    _range_contour,
 )
 
 
@@ -27,6 +28,16 @@ def test_vertical_stem_nurbs_recovers_endpoints_and_doubles():
     np.testing.assert_allclose(fit["control_points"][4], fit["control_points"][5])
     np.testing.assert_allclose(fit["control_points"][9], fit["control_points"][10])
     assert fit["fit_rmse"] < 0.01
+
+
+def test_range_contour_stitches_fore_and_aft_segments():
+    lower = np.column_stack([np.linspace(0.65, 1.0, 8), np.zeros(8)])
+    upper = np.column_stack([np.linspace(1.0, 0.65, 8), np.ones(8)])
+    contour = _range_contour([lower, upper], 0.65, None)
+    assert contour[0, 1] == 0.0
+    assert contour[-1, 1] == 1.0
+    assert contour[:, 0].min() >= 0.65
+    assert len(contour) == len(lower) + len(upper)
 
 
 def test_stern_triples_are_coincident_after_fit():
