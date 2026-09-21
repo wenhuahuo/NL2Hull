@@ -9,11 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 
 from .geometry import HullInput, Waterline, evaluate_waterline
-from .profile import (
-    ProfileFit,
-    evaluate_profile_parameters,
-    profile_parameter_vector,
-)
+from .nurbs import evaluate
+from .profile import ProfileFit
 
 
 def _gray_poly(ax, mesh, axis_a: int, axis_b: int, view_axis: int) -> None:
@@ -158,16 +155,18 @@ def plot_summary(rows: list[dict], output_path: Path) -> None:
 
 def plot_profile(hull: HullInput, fit: ProfileFit, output_path: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
-    generated_stem, generated_stern = evaluate_profile_parameters(
-        profile_parameter_vector(fit), samples=160
-    )
-    for ax, name, points, nurbs, generated, color in [
-        (axes[0], "Stem contour", fit.stem, fit.stem_nurbs, generated_stem, "tab:red"),
-        (axes[1], "Stern contour", fit.stern, fit.stern_nurbs, generated_stern, "tab:blue"),
+    for ax, name, points, nurbs, color in [
+        (axes[0], "Stem contour", fit.stem, fit.stem_nurbs, "tab:red"),
+        (axes[1], "Stern contour", fit.stern, fit.stern_nurbs, "tab:blue"),
     ]:
         ax.plot(fit.raw_xz[:, 0], fit.raw_xz[:, 1], ".", ms=0.6, alpha=0.12, color="0.4")
         ax.plot(points[:, 0], points[:, 1], "k.", ms=2.5, label="extracted")
-        curve = generated
+        curve = evaluate(
+            np.linspace(0.0, 1.0, 160),
+            nurbs["control_points"],
+            nurbs["weights"],
+            knots=nurbs["knots"],
+        )
         ax.plot(
             curve[:, 0],
             curve[:, 1],

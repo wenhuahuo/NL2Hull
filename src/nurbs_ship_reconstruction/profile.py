@@ -8,12 +8,12 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from .geometry import HullInput
-from .nurbs import evaluate
+from .nurbs import clamped_knots, evaluate
 
 CENTER_PLANE_Y = 1e-4
 STEM_X_MIN = 0.65
 STERN_X_MAX = 0.35
-PROFILE_CONTROL_COUNT = 24
+PROFILE_CONTROL_COUNT = 32
 # Paper 2.2: stem has 14 controls with two double vertices; stern has 19
 # controls with two triples and one double vertex.
 STEM_COINCIDENT = ((4, 5), (9, 10))
@@ -134,6 +134,61 @@ def _resample(points: np.ndarray, count: int) -> np.ndarray:
     )
 
 
+def _deck_corner_parameter(points: np.ndarray) -> float:
+    target = _resample(points, 80)
+    chord = np.r_[0.0, np.cumsum(np.hypot(*np.diff(target, axis=0).T))]
+    parameter = chord / chord[-1]
+    delta = np.diff(target, axis=0)
+    directions = delta / np.maximum(np.linalg.norm(delta, axis=1)[:, None], 1e-12)
+    angles = np.arccos(np.clip(np.sum(directions[:-1] * directions[1:], axis=1), -1.0, 1.0))
+    candidates = np.flatnonzero(
+        (target[1:-1, 1] >= target[:, 1].min() + 0.5 * np.ptp(target[:, 1]))
+        & (parameter[1:-1] >= 0.3)
+        & (parameter[1:-1] <= 0.9)
+    )
+    if len(candidates) == 0:
+        raise ValueError("profile has no upper contour corner candidate")
+    return float(parameter[candidates[np.argmax(angles[candidates])]+1])
+
+
+def _bulb_parameter(points: np.ndarray) -> float:
+    target = _resample(points, 80)
+    chord = np.r_[0.0, np.cumsum(np.hypot(*np.diff(target, axis=0).T))]
+    parameter = chord / chord[-1]
+    lower = target[:, 1] <= target[:, 1].min() + 0.5 * np.ptp(target[:, 1])
+    candidates = np.flatnonzero(lower)
+    return float(parameter[candidates[np.argmax(target[candidates, 0])]])
+
+
+def _combined_feature_knots(
+    control_count: int, bulb: float, deck: float, degree: int = 3
+) -> np.ndarray:
+    interior_count = control_count - degree - 1
+    local_count = 8
+    deck_multiplicity = 3
+    regular_count = interior_count - local_count - deck_multiplicity
+    start = max(0.05, bulb - 0.10)
+    end = min(0.95, bulb + 0.10, deck - 0.04)
+    if end <= start:
+        raise ValueError("bulb and deck feature intervals overlap")
+    gaps = np.array([start, deck - end, 1.0 - deck])
+    raw_counts = regular_count * gaps / gaps.sum()
+    counts = np.floor(raw_counts).astype(int)
+    for index in np.argsort(raw_counts - counts)[::-1][: regular_count - counts.sum()]:
+        counts[index] += 1
+    intervals = ((0.0, start), (end, deck), (deck, 1.0))
+    regular = np.concatenate(
+        [
+            np.linspace(left, right, count + 2)[1:-1]
+            for (left, right), count in zip(intervals, counts)
+            if count
+        ]
+    )
+    local = np.linspace(start, end, local_count + 2)[1:-1]
+    interior = np.sort(np.r_[regular, local, np.full(deck_multiplicity, deck)])
+    return np.r_[np.zeros(degree + 1), interior, np.ones(degree + 1)]
+
+
 def _groups(control_count: int, coincident: tuple[tuple[int, ...], ...]) -> list[int]:
     parent = list(range(control_count))
     for group in coincident:
@@ -143,7 +198,13 @@ def _groups(control_count: int, coincident: tuple[tuple[int, ...], ...]) -> list
     return parent
 
 
-def _fit_contour(points: np.ndarray, control_count: int, coincident: tuple[tuple[int, ...], ...]) -> dict:
+def _fit_contour(
+    points: np.ndarray,
+    control_count: int,
+    coincident: tuple[tuple[int, ...], ...],
+    knots: np.ndarray | None = None,
+    model: str | None = None,
+) -> dict:
     target = _resample(points, 80)
     chord = np.r_[0.0, np.cumsum(np.hypot(*np.diff(target, axis=0).T))]
     parameter = chord / chord[-1]
@@ -172,7 +233,7 @@ def _fit_contour(points: np.ndarray, control_count: int, coincident: tuple[tuple
         return points_ctrl
 
     def residual(vector: np.ndarray) -> np.ndarray:
-        fitted = evaluate(parameter, controls(vector))
+        fitted = evaluate(parameter, controls(vector), knots=knots)
         return (fitted - target).ravel()
 
     result = least_squares(
@@ -187,12 +248,13 @@ def _fit_contour(points: np.ndarray, control_count: int, coincident: tuple[tuple
     if not result.success:
         raise RuntimeError(f"profile NURBS fitting failed: {result.message}")
     control = controls(result.x)
-    fitted = evaluate(parameter, control)
+    fitted = evaluate(parameter, control, knots=knots)
     return {
         "control_points": control,
         "weights": np.ones(control_count),
+        "knots": clamped_knots(control_count) if knots is None else knots,
         "parameter": parameter,
-        "model": f"fixed degree-3 clamped B-spline; {control_count} controls",
+        "model": model or f"fixed degree-3 clamped B-spline; {control_count} controls",
         "fit_rmse": float(np.sqrt(np.mean(np.sum((fitted - target) ** 2, axis=1)))),
         "fit_max_error": float(np.max(np.linalg.norm(fitted - target, axis=1))),
         "x_keel": float(control[0, 0]),
@@ -212,7 +274,20 @@ def fit_profile(hull: HullInput) -> ProfileFit:
         raw_xz=raw,
         stem=stem,
         stern=stern,
-        stem_nurbs=_fit_contour(stem, PROFILE_CONTROL_COUNT, ()),
+        stem_nurbs=_fit_contour(
+            stem,
+            PROFILE_CONTROL_COUNT,
+            (),
+            knots=_combined_feature_knots(
+                PROFILE_CONTROL_COUNT,
+                _bulb_parameter(stem),
+                _deck_corner_parameter(stem),
+            ),
+            model=(
+                "fixed degree-3 B-spline; 32 controls; repeated deck knot; "
+                "local bulb knots"
+            ),
+        ),
         stern_nurbs=_fit_contour(stern, PROFILE_CONTROL_COUNT, ()),
     )
 
@@ -244,6 +319,7 @@ def profile_record(fit: ProfileFit) -> dict:
             "extracted": points.tolist(),
             "control_points": nurbs["control_points"].tolist(),
             "weights": nurbs["weights"].tolist(),
+            "knots": nurbs["knots"].tolist(),
             "model": nurbs["model"],
             "fit_rmse": nurbs["fit_rmse"],
             "fit_max_error": nurbs["fit_max_error"],

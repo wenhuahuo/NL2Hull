@@ -20,7 +20,7 @@ from .geometry import (
 from .plotting import plot_comparison, plot_profile, plot_summary
 from .profile import fit_profile, profile_record
 
-REVISION = "v014_fixed_profile_parameters"
+REVISION = "v018b_fixed_profile_combined_features"
 
 
 def _write_json(path: Path, value: object) -> None:

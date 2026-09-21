@@ -14,10 +14,23 @@ def clamped_knots(control_count: int, degree: int = 3) -> np.ndarray:
     return np.r_[np.zeros(degree + 1), interior, np.ones(degree + 1)]
 
 
-def basis_matrix(parameters: np.ndarray, control_count: int, degree: int = 3) -> np.ndarray:
+def basis_matrix(
+    parameters: np.ndarray,
+    control_count: int,
+    degree: int = 3,
+    knots: np.ndarray | None = None,
+) -> np.ndarray:
     """Evaluate all B-spline basis functions at *parameters*."""
     u = np.asarray(parameters, dtype=float).ravel()
-    knots = clamped_knots(control_count, degree)
+    if knots is None:
+        knots = clamped_knots(control_count, degree)
+    else:
+        knots = np.asarray(knots, dtype=float).ravel()
+        expected = control_count + degree + 1
+        if len(knots) != expected or np.any(np.diff(knots) < 0):
+            raise ValueError("knots must be a nondecreasing vector of valid length")
+        if knots[degree] != 0.0 or knots[-degree - 1] != 1.0:
+            raise ValueError("knots must span [0, 1]")
     basis = np.zeros((u.size, control_count), dtype=float)
 
     for i in range(control_count):
@@ -51,6 +64,7 @@ def evaluate(
     control_points: np.ndarray,
     weights: np.ndarray | None = None,
     degree: int = 3,
+    knots: np.ndarray | None = None,
 ) -> np.ndarray:
     """Evaluate a 2-D or 3-D NURBS curve."""
     points = np.asarray(control_points, dtype=float)
@@ -62,7 +76,7 @@ def evaluate(
     if len(weights) != len(points) or np.any(weights <= 0):
         raise ValueError("weights must be positive and match control_points")
 
-    basis = basis_matrix(parameters, len(points), degree)
+    basis = basis_matrix(parameters, len(points), degree, knots)
     weighted_basis = basis * weights[None, :]
     denominator = weighted_basis.sum(axis=1)
     return weighted_basis @ points / denominator[:, None]

@@ -8,6 +8,7 @@ from nurbs_ship_reconstruction.profile import (
     STERN_COINCIDENT,
     _fit_contour,
     _groups,
+    _combined_feature_knots,
     _range_contour,
     evaluate_profile_parameters,
     profile_parameter_vector,
@@ -50,7 +51,7 @@ def test_fixed_profile_contour_has_shared_parameter_dimension():
     fit = _fit_contour(points, PROFILE_CONTROL_COUNT, ())
     assert len(fit["control_points"]) == PROFILE_CONTROL_COUNT
     assert len(fit["weights"]) == PROFILE_CONTROL_COUNT
-    assert fit["model"] == "fixed degree-3 clamped B-spline; 24 controls"
+    assert fit["model"] == "fixed degree-3 clamped B-spline; 32 controls"
 
 
 def test_profile_parameter_vector_round_trips_fixed_controls():
@@ -70,6 +71,26 @@ def test_profile_parameter_vector_round_trips_fixed_controls():
     np.testing.assert_allclose(stem_curve[0], stem["control_points"][0])
     np.testing.assert_allclose(stern_curve[-1], stern["control_points"][-1])
     assert len(vector) == 4 * PROFILE_CONTROL_COUNT
+
+
+def test_combined_feature_fit_preserves_custom_model_label():
+    z = np.linspace(0.0, 0.1, 60)
+    points = np.column_stack([0.9 + 0.05 * z, z])
+    fit = _fit_contour(
+        points,
+        PROFILE_CONTROL_COUNT,
+        (),
+        knots=_combined_feature_knots(PROFILE_CONTROL_COUNT, 0.44, 0.60),
+        model="combined feature model",
+    )
+    assert fit["model"] == "combined feature model"
+
+
+def test_combined_feature_knots_keep_control_dimension_and_features():
+    knots = _combined_feature_knots(PROFILE_CONTROL_COUNT, 0.44, 0.60)
+    assert len(knots) == PROFILE_CONTROL_COUNT + 4
+    assert np.sum(np.isclose(knots, 0.60)) == 3
+    assert np.sum((knots >= 0.34) & (knots <= 0.54)) >= 8
 
 
 def test_stern_triples_are_coincident_after_fit():

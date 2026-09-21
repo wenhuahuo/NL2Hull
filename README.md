@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v014_fixed_profile_parameters/`.
+Current full run: `outputs/v018b_fixed_profile_combined_features/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -33,6 +33,8 @@ Earlier runs are kept as evidence:
 - `v011_classic_hulls_nurbs_skinning`: center-plane 14/19-point stem/stern extraction and fit
 - `v012_range_profile_extraction`: complete ordered fore/aft x-range extraction before the existing 14/19-point fit
 - `v014_fixed_profile_parameters`: fixed 24-control-point stem/stern profile parameter vector prototype
+- `v018_fixed_profile_combined_features`: combined 32-control profile with repeated deck knot and local bulb knots
+- `v018b_fixed_profile_combined_features`: corrected combined-feature run with explicit model metadata
 
 For a short smoke run:
 
