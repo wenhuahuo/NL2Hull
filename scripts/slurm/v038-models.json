@@ -56,6 +56,25 @@
           "compat": {
             "thinkingFormat": "openrouter"
           }
+        },
+        {
+          "id": "xiaomi/mimo-v2.6-pro",
+          "name": "Xiaomi: MiMo-V2.6-Pro",
+          "api": "openai-completions",
+          "baseUrl": "https://openrouter.ai/api/v1",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 1048576,
+          "maxTokens": 131072,
+          "compat": {
+            "supportsDeveloperRole": false,
+            "thinkingFormat": "openrouter",
+            "supportsStrictMode": true,
+            "sendSessionAffinityHeaders": true
+          }
         }
       ]
     },
