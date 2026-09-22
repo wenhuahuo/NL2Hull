@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import shutil
 from typing import Any
 
 import numpy as np
@@ -16,11 +17,11 @@ from ..core.geometry import extract_waterline, load_hull, skin_waterlines
 from ..core.profile import fit_profile
 from ..deformation.ffd import FFDAction, REGION_EXTENTS, apply_ffd_actions
 
-REVISION = "v024_structured_action_dataset_100"
+REVISION = "v036_structured_action_dataset_30000"
 SEED = 20260922
 LEVEL_COUNT = 17
 SAMPLES_PER_WATERLINE = 48
-SAMPLE_COUNT = 100
+SAMPLE_COUNT = 30_000
 
 
 def _json_value(value: Any) -> Any:
@@ -231,7 +232,7 @@ def _build_candidate(
         raise ValueError(f"unknown sample type: {sample_type}")
 
     return {
-        "sample_id": f"action_{index:04d}",
+        "sample_id": f"action_{index:05d}",
         "interaction_type": sample_type,
         "hull_id": hull_data["state"]["hull_id"],
         "base_state_ref": f"hull_states/{hull_data['state']['hull_id']}.json",
@@ -288,15 +289,33 @@ def _check_hull_action_support(hull_data: dict[str, Any]) -> str | None:
     return None
 
 
+def _sample_type_counts(sample_count: int) -> dict[str, int]:
+    if sample_count < 1:
+        raise ValueError("sample_count must be positive")
+    counts = {
+        "single": sample_count * 30 // 100,
+        "multi_region_single_turn": sample_count * 25 // 100,
+        "same_region_two_turns": sample_count * 25 // 100,
+        "explicit_range": sample_count * 20 // 100,
+    }
+    counts["single"] += sample_count - sum(counts.values())
+    return counts
+
+
 def generate_action_dataset(
     dataset_dir: Path,
     output_dir: Path,
     *,
+    mirror_dir: Path | None = None,
+    sample_count: int = SAMPLE_COUNT,
     seed: int = SEED,
 ) -> dict[str, Any]:
-    """Generate 100 valid, hull-conditioned structured action samples."""
+    """Generate valid, hull-conditioned structured action samples."""
     if output_dir.exists():
         raise FileExistsError(f"output directory already exists: {output_dir}")
+    if mirror_dir is not None and mirror_dir.exists():
+        raise FileExistsError(f"mirror directory already exists: {mirror_dir}")
+    sample_type_targets = _sample_type_counts(sample_count)
     output_dir.mkdir(parents=True)
     (output_dir / "hull_states").mkdir()
 
@@ -327,78 +346,84 @@ def generate_action_dataset(
         "source_hull_ids": source_hull_ids,
         "eligible_hull_ids": hull_ids,
         "excluded_hulls": excluded_hulls,
-        "sample_count_target": SAMPLE_COUNT,
+        "sample_count_target": sample_count,
         "sample_count_completed": 0,
         "seed": seed,
         "level_count": LEVEL_COUNT,
         "samples_per_waterline": SAMPLES_PER_WATERLINE,
         "job_id": None,
         "status": "running",
+        "mirror_output": str(mirror_dir) if mirror_dir is not None else None,
         "outputs": {
             "records": str(output_dir / "structured_actions.jsonl"),
             "hull_states": str(output_dir / "hull_states"),
         },
-        "sample_type_targets": {
-            "single": 30,
-            "multi_region_single_turn": 25,
-            "same_region_two_turns": 25,
-            "explicit_range": 20,
-        },
+        "sample_type_targets": sample_type_targets,
         "rejected_candidates": [],
     }
     manifest_path = output_dir / "run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
     rng = np.random.default_rng(seed)
-    sample_types = (
-        ["single"] * 30
-        + ["multi_region_single_turn"] * 25
-        + ["same_region_two_turns"] * 25
-        + ["explicit_range"] * 20
-    )
+    sample_types = [
+        sample_type
+        for sample_type, count in sample_type_targets.items()
+        for _ in range(count)
+    ]
     rng.shuffle(sample_types)
     records_path = output_dir / "structured_actions.jsonl"
-    records = []
-    for index, sample_type in enumerate(sample_types, start=1):
-        hull_id = hull_ids[(index - 1) % len(hull_ids)]
-        for attempt in range(50):
-            try:
-                candidate = _build_candidate(
-                    index, hull_data[hull_id], sample_type, rng
+    structured_path = output_dir / "structured_actions.json"
+    completed = 0
+    with records_path.open("w") as jsonl_file, structured_path.open("w") as json_file:
+        json_file.write("[\n")
+        for index, sample_type in enumerate(sample_types, start=1):
+            hull_id = hull_ids[(index - 1) % len(hull_ids)]
+            for attempt in range(50):
+                try:
+                    candidate = _build_candidate(
+                        index, hull_data[hull_id], sample_type, rng
+                    )
+                    record = _execute_candidate(candidate, hull_data[hull_id])
+                    completed += 1
+                    jsonl_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    json_file.write(json.dumps(record, indent=2, ensure_ascii=False))
+                    json_file.write(",\n" if completed < sample_count else "\n")
+                    break
+                except Exception as error:
+                    manifest["rejected_candidates"].append({
+                        "sample_id": f"action_{index:05d}",
+                        "hull_id": hull_id,
+                        "sample_type": sample_type,
+                        "attempt": attempt + 1,
+                        "failure_reason": f"{type(error).__name__}: {error}",
+                    })
+            else:
+                manifest["status"] = "failed"
+                manifest["failure_reason"] = f"could not generate sample action_{index:05d}"
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
                 )
-                record = _execute_candidate(candidate, hull_data[hull_id])
-                records.append(record)
-                break
-            except Exception as error:
-                manifest["rejected_candidates"].append({
-                    "sample_id": f"action_{index:04d}",
-                    "hull_id": hull_id,
-                    "sample_type": sample_type,
-                    "attempt": attempt + 1,
-                    "failure_reason": f"{type(error).__name__}: {error}",
-                })
-        else:
-            manifest["status"] = "failed"
-            manifest["failure_reason"] = f"could not generate sample action_{index:04d}"
+                raise RuntimeError(manifest["failure_reason"])
+            manifest["sample_count_completed"] = completed
             manifest_path.write_text(
                 json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
             )
-            raise RuntimeError(manifest["failure_reason"])
-        manifest["sample_count_completed"] = len(records)
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
-
-    records_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records)
-    )
-    (output_dir / "structured_actions.json").write_text(
-        json.dumps(records, indent=2, ensure_ascii=False) + "\n"
-    )
+        json_file.write("]\n")
     manifest["status"] = "completed"
     manifest["completed_at"] = datetime.now(timezone.utc).isoformat()
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    if mirror_dir is not None:
+        try:
+            shutil.copytree(output_dir, mirror_dir)
+        except Exception as error:
+            manifest["status"] = "failed"
+            manifest["failure_reason"] = f"{type(error).__name__}: {error}"
+            manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+            raise
     return {
         "output_dir": str(output_dir),
-        "sample_count": len(records),
+        "mirror_dir": str(mirror_dir) if mirror_dir is not None else None,
+        "sample_count": completed,
         "rejected_candidates": len(manifest["rejected_candidates"]),
     }
 
@@ -414,8 +439,16 @@ def main() -> None:
         default=Path("outputs") / REVISION,
     )
     parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--samples", type=int, default=SAMPLE_COUNT)
+    parser.add_argument("--mirror-output", type=Path)
     args = parser.parse_args()
-    result = generate_action_dataset(args.dataset, args.output, seed=args.seed)
+    result = generate_action_dataset(
+        args.dataset,
+        args.output,
+        mirror_dir=args.mirror_output,
+        sample_count=args.samples,
+        seed=args.seed,
+    )
     print(
         f"completed {result['sample_count']} structured action samples: "
         f"{result['output_dir']}"
