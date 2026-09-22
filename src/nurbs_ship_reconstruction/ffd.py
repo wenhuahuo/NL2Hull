@@ -191,6 +191,15 @@ def _set_controls(curve: dict, controls: np.ndarray) -> None:
     curve["control_points"] = controls
 
 
+def _action_extents(action: FFDAction) -> tuple[tuple[float, float], tuple[float, float]]:
+    x_extent, z_extent = REGION_EXTENTS[action.region]
+    if action.longitudinal_extent is not None:
+        x_extent = action.longitudinal_extent
+    if action.vertical_extent is not None:
+        z_extent = action.vertical_extent
+    return x_extent, z_extent
+
+
 def _action_mask(
     controls: np.ndarray,
     x_min: float,
@@ -199,11 +208,7 @@ def _action_mask(
     z_max: float,
     action: FFDAction,
 ) -> np.ndarray:
-    x_extent, z_extent = REGION_EXTENTS[action.region]
-    if action.longitudinal_extent is not None:
-        x_extent = action.longitudinal_extent
-    if action.vertical_extent is not None:
-        z_extent = action.vertical_extent
+    x_extent, z_extent = _action_extents(action)
     x_norm = (controls[:, 0] - x_min) / (x_max - x_min)
     z_norm = (controls[:, 2] - z_min) / (z_max - z_min)
     mask = _window(x_norm, x_extent) * _window(z_norm, z_extent)
@@ -301,10 +306,26 @@ def _apply_action(waterlines: list[Waterline], action: FFDAction) -> list[Waterl
                 controls[:, 2] += value * depth * mask
             elif action.operation == "downward":
                 controls[:, 2] -= value * depth * mask
-            elif action.operation == "forward":
-                controls[:, 0] += value * length * mask
-            elif action.operation in {"aftward", "change_bulb_length"}:
-                controls[:, 0] -= value * length * mask
+            elif action.operation in {"forward", "aftward", "change_bulb_length"}:
+                x_extent, z_extent = _action_extents(action)
+                x_norm = (controls[:, 0] - x_min) / length
+                z_norm = (controls[:, 2] - z_min) / depth
+                z_mask = _window(z_norm, z_extent)
+                if action.constraints.get("preserve_deck_line"):
+                    z_mask *= 1.0 - np.clip(z_norm, 0.0, 1.0)
+                sign = 1.0 if action.operation == "forward" else -1.0
+                lower = x_min + x_extent[0] * length
+                upper = x_min + x_extent[1] * length
+                if action.region in {"bow", "bulb"}:
+                    active = (x_norm >= x_extent[0]) & (x_norm <= x_extent[1])
+                    factor = 1.0 + sign * value * z_mask
+                    controls[active, 0] = lower + (controls[active, 0] - lower) * factor[active]
+                elif action.region == "stern":
+                    active = (x_norm >= x_extent[0]) & (x_norm <= x_extent[1])
+                    factor = 1.0 - sign * value * z_mask
+                    controls[active, 0] = upper + (controls[active, 0] - upper) * factor[active]
+                else:
+                    controls[:, 0] += sign * value * length * mask
             elif action.operation == "increase_length":
                 center = (x_min + x_max) / 2.0
                 controls[:, 0] = center + (controls[:, 0] - center) * (1.0 + value * mask)
