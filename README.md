@@ -17,7 +17,7 @@ Each experiment uses a unique revision name of the form
 `<revision>_classic_hulls_nurbs_skinning`. Results live under `outputs/` and
 are ignored by Git. The runner never clears or overwrites an existing run.
 
-Current full run: `outputs/v019d_profile_constrained_loft/`.
+Current full run: `outputs/v020_watertight_loft/`.
 Earlier runs are kept as evidence:
 
 - `v001_classic_hulls_nurbs_skinning`: failed on DTMB5415 baseline waterline sampling
@@ -39,6 +39,7 @@ Earlier runs are kept as evidence:
 - `v019b_profile_constrained_loft`: initial 130-parameter round-trip and profile-constrained loft
 - `v019c_profile_constrained_loft`: profile endpoint refit attempt
 - `v019d_profile_constrained_loft`: profile endpoint crossings selected by stern/bow side before lofting
+- `v020_watertight_loft`: closed waterline rings, corrected loft indexing, and baseline/deck caps
 
 For a short smoke run:
 

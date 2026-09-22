@@ -362,25 +362,114 @@ def evaluate_waterline(waterline: Waterline, samples: int = 96) -> tuple[np.ndar
     return path[:, 0], path[:, 1]
 
 
+def _closed_waterline_ring(x: np.ndarray, width: np.ndarray, z: float) -> np.ndarray:
+    """Return one clockwise section with shared stern and bow vertices.
+
+    The evaluated curve is open and stern-to-bow. Port and starboard have to
+    use the same centerline vertex indices; equal coordinates alone leave the
+    bow and stern unconnected.
+    """
+    if len(x) < 4 or len(x) != len(width):
+        raise ValueError("waterline ring needs matching stern-to-bow samples")
+    interior = len(x) - 2
+    stern = np.array([x[0], 0.0, z])
+    bow = np.array([x[-1], 0.0, z])
+    starboard = np.column_stack((x[1:-1], width[1:-1], np.full(interior, z)))
+    port = np.column_stack((x[-2:0:-1], -width[-2:0:-1], np.full(interior, z)))
+    return np.vstack((stern, starboard, bow, port))
+
+
+def _polygon_area(points: np.ndarray) -> float:
+    rolled = np.roll(points, -1, axis=0)
+    return 0.5 * float(np.sum(points[:, 0] * rolled[:, 1] - rolled[:, 0] * points[:, 1]))
+
+
+def _triangulate_ccw(points: np.ndarray) -> np.ndarray:
+    """Ear-clip a counterclockwise simple polygon into triangle indices."""
+    count = len(points)
+    if count < 3 or _polygon_area(points) <= 0.0:
+        raise ValueError("polygon cap must be counterclockwise and have area")
+    span = float(np.max(np.ptp(points, axis=0)))
+    epsilon = 1e-12 * max(span, 1.0)
+    indices = list(range(count))
+    triangles: list[tuple[int, int, int]] = []
+
+    def signed_area(i0: int, i1: int, i2: int) -> float:
+        a, b, c = points[i0], points[i1], points[i2]
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+    def blocks_ear(i0: int, i1: int, i2: int, active: list[int]) -> bool:
+        a, b, c = points[i0], points[i1], points[i2]
+        others = [index for index in active if index not in (i0, i1, i2)]
+        if not others:
+            return False
+        probed = points[others]
+        c1 = (b[0] - a[0]) * (probed[:, 1] - a[1]) - (b[1] - a[1]) * (probed[:, 0] - a[0])
+        c2 = (c[0] - b[0]) * (probed[:, 1] - b[1]) - (c[1] - b[1]) * (probed[:, 0] - b[0])
+        c3 = (a[0] - c[0]) * (probed[:, 1] - c[1]) - (a[1] - c[1]) * (probed[:, 0] - c[0])
+        # Collinear section points lie on the candidate diagonal. Treating
+        # them as interior rejects that diagonal and keeps every ring edge.
+        return bool(np.any((c1 >= -epsilon) & (c2 >= -epsilon) & (c3 >= -epsilon)))
+
+    while len(indices) > 3:
+        clipped = False
+        size = len(indices)
+        for position in range(size):
+            i0 = indices[(position - 1) % size]
+            i1 = indices[position]
+            i2 = indices[(position + 1) % size]
+            if signed_area(i0, i1, i2) <= epsilon or blocks_ear(i0, i1, i2, indices):
+                continue
+            triangles.append((i0, i1, i2))
+            del indices[position]
+            clipped = True
+            break
+        if not clipped:
+            raise RuntimeError("waterline cap is not a simple polygon")
+    i0, i1, i2 = indices
+    if signed_area(i0, i1, i2) <= epsilon:
+        raise RuntimeError("waterline cap triangulation collapsed")
+    triangles.append((i0, i1, i2))
+    return np.asarray(triangles, dtype=int)
+
+
+def _cap_faces(ring: np.ndarray, offset: int, outward_up: bool) -> np.ndarray:
+    """Triangulate one clockwise loft ring and offset it into the mesh."""
+    local = _triangulate_ccw(ring[::-1, :2])
+    faces = len(ring) - 1 - local
+    if not outward_up:
+        faces = faces[:, ::-1]
+    return faces + offset
+
+
 def skin_waterlines(waterlines: list[Waterline], samples: int = 96) -> trimesh.Trimesh:
-    rows = []
+    rings = []
     for waterline in waterlines:
         x, width = evaluate_waterline(waterline, samples=samples)
-        positive = np.c_[x, width, np.full_like(x, waterline.z)]
-        negative = np.c_[x, -width, np.full_like(x, waterline.z)]
-        rows.append((positive, negative))
+        # The aft and forward fits both include the midship endpoint.
+        x = np.concatenate((x[:samples], x[samples + 1 :]))
+        width = np.concatenate((width[:samples], width[samples + 1 :]))
+        rings.append(_closed_waterline_ring(x, width, waterline.z))
+    ring_size = len(rings[0])
+    if any(len(ring) != ring_size for ring in rings):
+        raise ValueError("waterline rings must have equal vertex counts")
 
-    vertices = np.vstack([part for positive, negative in rows for part in (positive, negative)])
-    row_width = 2 * (2 * samples - 1)
-    faces: list[list[int]] = []
-    for row in range(len(rows) - 1):
-        start_a = row * row_width
-        start_b = (row + 1) * row_width
-        for column in range(row_width - 1):
-            a, b = start_a + column, start_a + column + 1
-            c, d = start_b + column, start_b + column + 1
-            faces.extend([[a, b, d], [a, d, c]])
-    return trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=False)
+    vertices = np.vstack(rings)
+    faces: list[np.ndarray] = []
+    for row in range(len(rings) - 1):
+        start_a = row * ring_size
+        start_b = (row + 1) * ring_size
+        row_faces = []
+        for column in range(ring_size):
+            nxt = (column + 1) % ring_size
+            a, b = start_a + column, start_a + nxt
+            c, d = start_b + column, start_b + nxt
+            # Clockwise section rings; this split points the side normal outward.
+            row_faces.extend(((a, c, b), (b, c, d)))
+        faces.append(np.asarray(row_faces, dtype=int))
+    faces.append(_cap_faces(rings[0], 0, outward_up=False))
+    faces.append(_cap_faces(rings[-1], (len(rings) - 1) * ring_size, outward_up=True))
+    return trimesh.Trimesh(vertices=vertices, faces=np.vstack(faces), process=False)
 
 
 def _sample_vertices(vertices: np.ndarray, maximum: int = 50000) -> np.ndarray:
