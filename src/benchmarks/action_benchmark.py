@@ -12,7 +12,7 @@ from typing import Any
 from model_clients.jev import JEV_MODEL, JevClient
 from model_clients.pi import PI_MODELS, run_pi_model
 
-REVISION = "v032_action_model_benchmark"
+REVISION = "v033_action_model_benchmark"
 SOURCE_DATASET = "outputs/v030_natural_language_action_dataset_100_qualitative"
 
 REGIONS = ("bow", "stern", "bulb", "midbody", "deck", "bilge", "global")
@@ -82,6 +82,7 @@ def _pi_prompt(record: dict[str, Any], turn_index: int) -> str:
 - 略微、稍微、适度、明显、显著分别对应 magnitude_level 1、2、3、4、5。
 - 用户明确给出数值和范围时，magnitude_level 必须为 null，并原样填写 magnitude_value、longitudinal_extent、vertical_extent。
 - 没有明确数值的范围字段填写 null；未提到的约束使用空对象。
+- constraints 只能使用精确键 preserve_displacement 和 preserve_deck_line，不要改写键名。
 - 未说明对称性时 symmetry 使用 true。
 - 连续对话只解析当前用户输入，不重复输出此前动作。
 """
