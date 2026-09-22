@@ -31,11 +31,12 @@ def ffd_visualization_cases() -> list[tuple[str, str, FFDAction]]:
     }
     for region in ("bow", "stern", "bulb"):
         for operation, view in view_by_direction.items():
+            magnitude_level = 4 if operation in {"forward", "aftward"} else 5
             cases.append(
                 (
                     f"local_{region}_{operation}",
                     view,
-                    FFDAction(region, operation, magnitude_level=5),
+                    FFDAction(region, operation, magnitude_level=magnitude_level),
                 )
             )
     cases.extend(
