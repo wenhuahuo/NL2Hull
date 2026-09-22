@@ -10,7 +10,7 @@ from typing import Any
 
 from ..agents.pi_runner import PI_MODEL, run_pi_text
 
-REVISION = "v028_natural_language_action_dataset_100_qualitative"
+REVISION = "v029_natural_language_action_dataset_100_qualitative"
 SOURCE_DATASET = "outputs/v025_structured_action_dataset_100_all_hulls"
 
 
@@ -53,7 +53,7 @@ def _turn_prompt(
 1. 只返回一条自然、简洁的中文用户句子，不要返回 JSON、解释、标题、项目符号或引号。
 2. 保留动作的区域、操作、相对变形大小和约束含义，不得增加输入 JSON 中没有的工程目标。
 3. 对有内部强度编码的动作，只使用自然的模糊表达：1=略微，2=稍微，3=适度，4=明显，5=显著。禁止在输出中出现内部编码、数字强度、幅度、等级、级别、强度或档位等词语。
-4. 如果 magnitude_level 为 null，必须准确表达 magnitude_value、longitudinal_extent 和 vertical_extent 中的数值；这种情况下可以使用“变形量”或“数值”。
+4. 如果 magnitude_level 为 null，必须准确表达 magnitude_value、longitudinal_extent 和 vertical_extent 中的数值；逐字符复制每个小数，不得四舍五入、截断或改写；这种情况下可以使用“变形量”或“数值”。
 5. constraints 中的 preserve_displacement、preserve_deck_line 等约束必须在句子中体现。
 6. 不要引入米、毫米等物理单位；当前数据中的数值使用归一化参数。
 7. 区域术语固定为：bow=艏部，stern=艉部，bulb=球鼻艏，midbody=中体，deck=甲板，bilge=舭部，global=全船。
