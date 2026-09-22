@@ -352,17 +352,29 @@ def _profile_x_at_z(
     raise ValueError("profile side must be 'min' or 'max'")
 
 
-def evaluate_waterline(waterline: Waterline, samples: int = 96) -> tuple[np.ndarray, np.ndarray]:
+def evaluate_waterline_3d(waterline: Waterline, samples: int = 96) -> np.ndarray:
     after_u = np.linspace(0.0, 1.0, samples)
     fore_u = np.linspace(0.0, 1.0, samples)
     after = evaluate(after_u, waterline.after["control_points"], waterline.after["weights"])
     fore = evaluate(fore_u, waterline.fore["control_points"], waterline.fore["weights"])
+    if after.shape[1] == 2:
+        after = np.column_stack((after, np.full(len(after), waterline.z)))
+    if fore.shape[1] == 2:
+        fore = np.column_stack((fore, np.full(len(fore), waterline.z)))
+    if after.shape[1] != 3 or fore.shape[1] != 3:
+        raise ValueError("waterline NURBS curves must be 2-D or 3-D")
     # Both curves are outside-to-midships. Return stern-to-bow ordering.
-    path = np.vstack([after, fore[::-1]])
+    return np.vstack([after, fore[::-1]])
+
+
+def evaluate_waterline(waterline: Waterline, samples: int = 96) -> tuple[np.ndarray, np.ndarray]:
+    path = evaluate_waterline_3d(waterline, samples=samples)
     return path[:, 0], path[:, 1]
 
 
-def _closed_waterline_ring(x: np.ndarray, width: np.ndarray, z: float) -> np.ndarray:
+def _closed_waterline_ring(
+    x: np.ndarray, width: np.ndarray, z: float | np.ndarray
+) -> np.ndarray:
     """Return one clockwise section with shared stern and bow vertices.
 
     The evaluated curve is open and stern-to-bow. Port and starboard have to
@@ -372,10 +384,15 @@ def _closed_waterline_ring(x: np.ndarray, width: np.ndarray, z: float) -> np.nda
     if len(x) < 4 or len(x) != len(width):
         raise ValueError("waterline ring needs matching stern-to-bow samples")
     interior = len(x) - 2
-    stern = np.array([x[0], 0.0, z])
-    bow = np.array([x[-1], 0.0, z])
-    starboard = np.column_stack((x[1:-1], width[1:-1], np.full(interior, z)))
-    port = np.column_stack((x[-2:0:-1], -width[-2:0:-1], np.full(interior, z)))
+    z_values = np.asarray(z, dtype=float)
+    if z_values.ndim == 0:
+        z_values = np.full(len(x), float(z_values))
+    if z_values.shape != x.shape:
+        raise ValueError("waterline z coordinates must match x and width")
+    stern = np.array([x[0], 0.0, z_values[0]])
+    bow = np.array([x[-1], 0.0, z_values[-1]])
+    starboard = np.column_stack((x[1:-1], width[1:-1], z_values[1:-1]))
+    port = np.column_stack((x[-2:0:-1], -width[-2:0:-1], z_values[-2:0:-1]))
     return np.vstack((stern, starboard, bow, port))
 
 
@@ -445,11 +462,10 @@ def _cap_faces(ring: np.ndarray, offset: int, outward_up: bool) -> np.ndarray:
 def skin_waterlines(waterlines: list[Waterline], samples: int = 96) -> trimesh.Trimesh:
     rings = []
     for waterline in waterlines:
-        x, width = evaluate_waterline(waterline, samples=samples)
+        path = evaluate_waterline_3d(waterline, samples=samples)
         # The aft and forward fits both include the midship endpoint.
-        x = np.concatenate((x[:samples], x[samples + 1 :]))
-        width = np.concatenate((width[:samples], width[samples + 1 :]))
-        rings.append(_closed_waterline_ring(x, width, waterline.z))
+        path = np.vstack((path[:samples], path[samples + 1 :]))
+        rings.append(_closed_waterline_ring(path[:, 0], path[:, 1], path[:, 2]))
     ring_size = len(rings[0])
     if any(len(ring) != ring_size for ring in rings):
         raise ValueError("waterline rings must have equal vertex counts")
