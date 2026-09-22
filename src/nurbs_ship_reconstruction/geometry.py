@@ -224,6 +224,14 @@ def _fit_half(x_target: np.ndarray, y_target: np.ndarray) -> dict:
     if not result.success:
         raise RuntimeError(f"NURBS fitting failed: {result.message}")
     control, weights = controls(result.x)
+    # Positive NURBS weights preserve monotonicity when the longitudinal
+    # control coordinates follow the sampled waterline direction. The bounded
+    # fit can otherwise introduce a small longitudinal control-point reversal
+    # on sparse or nearly flat boundary sections.
+    increasing = x_target[-1] >= x_target[0]
+    longitudinal = control[:, 0] if increasing else -control[:, 0]
+    longitudinal = np.maximum.accumulate(longitudinal)
+    control[:, 0] = longitudinal if increasing else -longitudinal
     fitted = evaluate(u_target, control, weights)
     return {
         "control_points": control,
@@ -267,8 +275,10 @@ def extract_waterline(
     after_x, after_y = _resample_half(x, width, float(x[0]), center)
     fore_x, fore_y = _resample_half(x, width, center, float(x[-1]))
     if profile is not None:
-        stern_x = _profile_x_at_z(profile.stern_nurbs, float(z), "min")
-        stem_x = _profile_x_at_z(profile.stem_nurbs, float(z), "max")
+        # Match profile endpoints to the actual resolved STL section. Boundary
+        # slices are offset away from coplanar baseline/deck planes above.
+        stern_x = _profile_x_at_z(profile.stern_nurbs, float(section_z), "min")
+        stem_x = _profile_x_at_z(profile.stem_nurbs, float(section_z), "max")
         if stern_x is not None:
             after_x[0], after_y[0] = stern_x, 0.0
         if stem_x is not None:

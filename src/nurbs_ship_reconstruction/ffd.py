@@ -140,6 +140,15 @@ def _smoothstep(value: np.ndarray) -> np.ndarray:
     return value * value * (3.0 - 2.0 * value)
 
 
+def _enforce_longitudinal_order(controls: np.ndarray) -> None:
+    """Keep a half-waterline's NURBS control path longitudinally ordered."""
+    direction = 1.0 if controls[-1, 0] >= controls[0, 0] else -1.0
+    signed = direction * controls[:, 0]
+    endpoint = signed[-1]
+    signed = np.minimum(np.maximum.accumulate(signed), endpoint)
+    controls[:, 0] = direction * signed
+
+
 def _window(
     values: np.ndarray,
     extent: tuple[float, float],
@@ -360,6 +369,8 @@ def _apply_action(waterlines: list[Waterline], action: FFDAction) -> list[Waterl
                 if value >= 1.0:
                     raise ValueError("decrease_breadth requires magnitude below 1")
                 controls[:, 1] *= 1.0 - value * mask
+            if action.operation in {"forward", "aftward", "change_bulb_length"}:
+                _enforce_longitudinal_order(controls)
             _set_controls(curve, controls)
         _refresh_waterline(waterline)
 
