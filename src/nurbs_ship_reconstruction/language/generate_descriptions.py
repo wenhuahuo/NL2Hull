@@ -10,7 +10,7 @@ from typing import Any
 
 from ..agents.pi_runner import PI_MODEL, run_pi_text
 
-REVISION = "v029_natural_language_action_dataset_100_qualitative"
+REVISION = "v030_natural_language_action_dataset_100_qualitative"
 SOURCE_DATASET = "outputs/v025_structured_action_dataset_100_all_hulls"
 
 
@@ -58,7 +58,8 @@ def _turn_prompt(
 6. 不要引入米、毫米等物理单位；当前数据中的数值使用归一化参数。
 7. 区域术语固定为：bow=艏部，stern=艉部，bulb=球鼻艏，midbody=中体，deck=甲板，bilge=舭部，global=全船。
 8. 方向术语固定为：forward=向艏移动，aftward=向艉移动，upward=上抬，downward=下压，outward=外扩，inward=内收。
-9. change_bulb_length 表示“按给定数值改变球鼻艏长度”，magnitude_value 是改变量，不能描述成最终长度。
+9. 操作术语固定为：increase_fullness=增加丰满度，decrease_fullness=降低丰满度，increase_flare=增加外飘，increase_length=增加全船长度，decrease_length=缩短全船长度，increase_breadth=增加全船宽度，decrease_breadth=减小全船宽度。
+10. change_bulb_length 表示“按给定数值改变球鼻艏长度”，magnitude_value 是改变量，不能描述成最终长度。
 
 船型：{record["hull_id"]}
 交互类型：{record["interaction_type"]}
