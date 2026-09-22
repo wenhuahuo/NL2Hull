@@ -392,6 +392,6 @@ def deform_hull(
     ]
     deformed = apply_ffd_actions(waterlines, actions)
     mesh = skin_waterlines(deformed, samples=samples)
-    if not mesh.is_watertight:
-        raise ValueError("FFD loft did not produce a watertight mesh")
+    if not mesh.is_watertight or not mesh.is_volume:
+        raise ValueError("FFD loft did not produce a valid watertight solid")
     return mesh, deformed
