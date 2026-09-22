@@ -6,9 +6,16 @@ import subprocess
 
 
 PI_MODEL = "deepseek/deepseek-flash"
+DEFAULT_THINKING = "low"
 
 
-def run_pi_text(prompt: str, *, timeout: int = 120) -> str:
+def run_pi_text(
+    prompt: str,
+    *,
+    model: str = PI_MODEL,
+    thinking: str = DEFAULT_THINKING,
+    timeout: int = 120,
+) -> str:
     """Return one print-mode response from pi without extensions or tools."""
     command = [
         "pi",
@@ -20,9 +27,9 @@ def run_pi_text(prompt: str, *, timeout: int = 120) -> str:
         "--no-tools",
         "--no-session",
         "--thinking",
-        "off",
+        thinking,
         "--model",
-        PI_MODEL,
+        model,
         "-p",
         "--",
         prompt,

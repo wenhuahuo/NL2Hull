@@ -1,17 +1,35 @@
-"""Generate Chinese descriptions for structured hull deformation actions."""
+"""Generate multilingual-model descriptions for structured hull actions."""
 
 from __future__ import annotations
 
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import random
 from typing import Any
 
-from ..agents.pi_runner import PI_MODEL, run_pi_text
+from ..agents.pi_runner import DEFAULT_THINKING, run_pi_text
 
-REVISION = "v030_natural_language_action_dataset_100_qualitative"
-SOURCE_DATASET = "outputs/v025_structured_action_dataset_100_all_hulls"
+REVISION = "v037_natural_language_action_dataset_150000"
+SMOKE_REVISION = f"{REVISION}_smoke_test"
+SOURCE_DATASET = "outputs/v036_structured_action_dataset_30000"
+DESCRIPTIONS_PER_TURN = 4
+DEFAULT_TIMEOUT = 180
+DEFAULT_WORKERS = 7
+SEED = 20260922
+
+MODELS = (
+    "wokey/claude-opus-5",
+    "wokey/kimi-k3",
+    "wokey/glm-5.3",
+    "wokey/grok-4.7",
+    "deepseek/deepseek-flash",
+    "openai-codex/gpt-5.6-sol",
+    "xiaomi/mimo-v2.6-pro",
+)
 
 
 def _json(value: object) -> str:
@@ -30,6 +48,7 @@ def _turn_prompt(
     record: dict[str, Any],
     turn_index: int,
     action_indices: list[int],
+    variant_index: int,
 ) -> str:
     actions = [record["actions"][index] for index in action_indices]
     context = ""
@@ -48,6 +67,7 @@ def _turn_prompt(
         instruction = "请只表达当前动作。"
     return f"""你正在为船型变形数据集生成一条中文用户输入描述。
 {context}{instruction}
+这是同一结构化动作的第 {variant_index + 1} 种自然表达，请使用与其他表达不同但准确的句式。
 
 必须遵守：
 1. 只返回一条自然、简洁的中文用户句子，不要返回 JSON、解释、标题、项目符号或引号。
@@ -92,60 +112,183 @@ def _validate_description(
     return value
 
 
-def generate_language_dataset(
-    source_dir: Path,
-    output_dir: Path,
-    *,
-    timeout: int = 120,
-) -> dict[str, Any]:
-    """Generate one description per input turn from the stage-two records."""
-    if output_dir.exists():
-        raise FileExistsError(f"output directory already exists: {output_dir}")
-    output_dir.mkdir(parents=True)
-    source_path = source_dir / "structured_actions.jsonl"
-    records = [json.loads(line) for line in source_path.read_text().splitlines()]
-    if len(records) != 100:
-        raise ValueError(f"expected 100 source records, found {len(records)}")
+def _model_sequence(task_count: int, *, seed: int) -> list[str]:
+    sequence = [MODELS[index % len(MODELS)] for index in range(task_count)]
+    random.Random(seed).shuffle(sequence)
+    return sequence
 
-    manifest = {
+
+def _task_result(task: dict[str, Any], *, timeout: int) -> dict[str, Any]:
+    actions = [
+        task["record"]["actions"][index]
+        for index in task["action_indices"]
+    ]
+    text = _validate_description(
+        run_pi_text(
+            task["prompt"],
+            model=task["model"],
+            thinking=DEFAULT_THINKING,
+            timeout=timeout,
+        ),
+        actions,
+    )
+    return {
+        "record_index": task["record_index"],
+        "turn_index": task["turn_index"],
+        "turn_id": task["turn_id"],
+        "variant_index": task["variant_index"],
+        "model": task["model"],
+        "thinking": DEFAULT_THINKING,
+        "action_indices": task["action_indices"],
+        "text": text,
+    }
+
+
+def _build_tasks(
+    records: list[dict[str, Any]],
+    *,
+    model_sequence: list[str],
+    variants_per_turn: int,
+    start_task: int = 0,
+) -> list[dict[str, Any]]:
+    tasks = []
+    task_index = start_task
+    for record_index, record in enumerate(records):
+        for turn_index, turn in enumerate(record["turns"]):
+            for variant_index in range(variants_per_turn):
+                model = model_sequence[task_index]
+                tasks.append({
+                    "record_index": record_index,
+                    "record": record,
+                    "turn_index": turn_index,
+                    "turn_id": turn["turn_id"],
+                    "variant_index": variant_index,
+                    "model": model,
+                    "action_indices": turn["output_actions"],
+                    "prompt": _turn_prompt(
+                        record,
+                        turn_index,
+                        turn["output_actions"],
+                        variant_index,
+                    ),
+                })
+                task_index += 1
+    return tasks
+
+
+def _write_json_array_item(file: Any, value: dict[str, Any], first: bool) -> bool:
+    if not first:
+        file.write(",\n")
+    file.write(json.dumps(value, indent=2, ensure_ascii=False))
+    return False
+
+
+def _manifest(
+    output_dir: Path,
+    source_dir: Path,
+    source_path: Path,
+    records: list[dict[str, Any]],
+    model_counts_target: dict[str, int],
+) -> dict[str, Any]:
+    turn_count = sum(len(record["turns"]) for record in records)
+    return {
         "revision": output_dir.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_dataset": str(source_dir),
         "source_records": str(source_path),
         "source_sha256": _source_digest(records),
-        "sample_count": len(records),
-        "description_count_target": sum(len(record["turns"]) for record in records),
+        "source_record_count": len(records),
+        "source_turn_count": turn_count,
+        "description_count_target": turn_count * DESCRIPTIONS_PER_TURN,
         "description_count_completed": 0,
         "provider_framework": "pi print mode",
-        "model": PI_MODEL,
+        "models": list(MODELS),
+        "model_counts_target": model_counts_target,
+        "model_counts_completed": {model: 0 for model in MODELS},
+        "thinking": DEFAULT_THINKING,
         "no_extensions": True,
+        "no_skills": True,
+        "no_prompt_templates": True,
+        "no_themes": True,
+        "no_context_files": True,
         "no_tools": True,
+        "no_session": True,
+        "workers": DEFAULT_WORKERS,
         "job_id": None,
         "status": "running",
-        "output_records": str(output_dir / "language_action_records.jsonl"),
+        "outputs": {
+            "records": str(output_dir / "language_action_records.jsonl"),
+            "samples": str(output_dir / "language_samples.jsonl"),
+        },
         "failures": [],
     }
+
+
+def _load_records(source_dir: Path) -> tuple[Path, list[dict[str, Any]]]:
+    source_path = source_dir / "structured_actions.jsonl"
+    records = [json.loads(line) for line in source_path.read_text().splitlines()]
+    if not records:
+        raise ValueError(f"source dataset is empty: {source_path}")
+    return source_path, records
+
+
+def _run_generation(
+    source_dir: Path,
+    output_dir: Path,
+    *,
+    timeout: int,
+    workers: int,
+    max_records: int | None = None,
+    variants_per_turn: int = DESCRIPTIONS_PER_TURN,
+) -> dict[str, Any]:
+    if output_dir.exists():
+        raise FileExistsError(f"output directory already exists: {output_dir}")
+    if workers < 1:
+        raise ValueError("workers must be positive")
+    source_path, all_records = _load_records(source_dir)
+    records = all_records if max_records is None else all_records[:max_records]
+    if max_records is not None and not records:
+        raise ValueError("smoke test selected no source records")
+    if variants_per_turn < 1:
+        raise ValueError("variants_per_turn must be positive")
+    task_count = sum(len(record["turns"]) for record in records) * variants_per_turn
+    model_sequence = _model_sequence(task_count, seed=SEED)
+    model_counts_target = dict(Counter(model_sequence))
+    manifest = _manifest(
+        output_dir, source_dir, source_path, records, model_counts_target
+    )
+    manifest["description_count_target"] = task_count
+    manifest["variants_per_turn"] = variants_per_turn
+    manifest["workers"] = workers
+    if max_records is not None:
+        manifest["smoke_test"] = True
+        manifest["full_source_record_count"] = len(all_records)
+    output_dir.mkdir(parents=True)
     manifest_path = output_dir / "run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
-    output_records = []
-    for record_index, record in enumerate(records):
-        enriched = dict(record)
-        enriched["language"] = {
-            "language": "zh-CN",
-            "turns": [],
+    tasks = _build_tasks(
+        records,
+        model_sequence=model_sequence,
+        variants_per_turn=variants_per_turn,
+    )
+    results: dict[tuple[int, int, int], dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(_task_result, task, timeout=timeout): task
+            for task in tasks
         }
-        for turn_index, turn in enumerate(record["turns"]):
+        for future in as_completed(futures):
+            task = futures[future]
             try:
-                prompt = _turn_prompt(record, turn_index, turn["output_actions"])
-                response = _validate_description(
-                    run_pi_text(prompt, timeout=timeout),
-                    [record["actions"][index] for index in turn["output_actions"]],
-                )
+                result = future.result()
             except Exception as error:
                 failure = {
-                    "sample_id": record["sample_id"],
-                    "turn_id": turn["turn_id"],
+                    "record_index": task["record_index"],
+                    "sample_id": task["record"]["sample_id"],
+                    "turn_id": task["turn_id"],
+                    "variant_index": task["variant_index"],
+                    "model": task["model"],
                     "failure_reason": f"{type(error).__name__}: {error}",
                 }
                 manifest["failures"].append(failure)
@@ -155,32 +298,79 @@ def generate_language_dataset(
                     json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
                 )
                 raise
-            enriched["language"]["turns"].append({
-                "turn_id": turn["turn_id"],
-                "action_indices": turn["output_actions"],
-                "text": response,
-            })
+            results[(result["record_index"], result["turn_index"], result["variant_index"])] = result
             manifest["description_count_completed"] += 1
-            manifest_path.write_text(
-                json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-            )
-        output_records.append(enriched)
+            manifest["model_counts_completed"][result["model"]] += 1
 
-    output_path = output_dir / "language_action_records.jsonl"
-    output_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in output_records)
-    )
-    (output_dir / "language_action_records.json").write_text(
-        json.dumps(output_records, indent=2, ensure_ascii=False) + "\n"
-    )
+    records_path = output_dir / "language_action_records.jsonl"
+    samples_path = output_dir / "language_samples.jsonl"
+    records_json_path = output_dir / "language_action_records.json"
+    with (
+        records_path.open("w") as records_file,
+        samples_path.open("w") as samples_file,
+        records_json_path.open("w") as records_json_file,
+    ):
+        records_json_file.write("[\n")
+        first_json = True
+        for record_index, record in enumerate(records):
+            enriched = dict(record)
+            language_turns = []
+            for turn_index, turn in enumerate(record["turns"]):
+                for variant_index in range(variants_per_turn):
+                    result = results[(record_index, turn_index, variant_index)]
+                    language_turns.append({
+                        "turn_id": result["turn_id"],
+                        "variant_index": variant_index,
+                        "model": result["model"],
+                        "thinking": result["thinking"],
+                        "action_indices": result["action_indices"],
+                        "text": result["text"],
+                    })
+                    sample = {
+                        "sample_id": record["sample_id"],
+                        "hull_id": record["hull_id"],
+                        "interaction_type": record["interaction_type"],
+                        "turn_id": result["turn_id"],
+                        "variant_index": variant_index,
+                        "model": result["model"],
+                        "thinking": result["thinking"],
+                        "action_indices": result["action_indices"],
+                        "text": result["text"],
+                    }
+                    samples_file.write(json.dumps(sample, ensure_ascii=False) + "\n")
+            enriched["language"] = {
+                "language": "zh-CN",
+                "turns": language_turns,
+            }
+            records_file.write(json.dumps(enriched, ensure_ascii=False) + "\n")
+            first_json = _write_json_array_item(records_json_file, enriched, first_json)
+        records_json_file.write("]\n")
+
     manifest["status"] = "completed"
     manifest["completed_at"] = datetime.now(timezone.utc).isoformat()
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
     return {
         "output_dir": str(output_dir),
-        "sample_count": len(output_records),
+        "source_record_count": len(records),
         "description_count": manifest["description_count_completed"],
+        "model_counts": manifest["model_counts_completed"],
     }
+
+
+def generate_language_dataset(
+    source_dir: Path,
+    output_dir: Path,
+    *,
+    timeout: int = DEFAULT_TIMEOUT,
+    workers: int = DEFAULT_WORKERS,
+) -> dict[str, Any]:
+    """Generate four validated descriptions per source input turn."""
+    return _run_generation(
+        source_dir,
+        output_dir,
+        timeout=timeout,
+        workers=workers,
+    )
 
 
 def main() -> None:
@@ -193,12 +383,25 @@ def main() -> None:
         type=Path,
         default=Path("outputs") / REVISION,
     )
-    parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
+    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args()
-    result = generate_language_dataset(args.source, args.output, timeout=args.timeout)
+    output = args.output
+    max_records = 1 if args.smoke_test else None
+    if args.smoke_test and output.name == REVISION:
+        output = output.with_name(SMOKE_REVISION)
+    result = _run_generation(
+        args.source,
+        output,
+        timeout=args.timeout,
+        workers=args.workers,
+        max_records=max_records,
+        variants_per_turn=7 if args.smoke_test else DESCRIPTIONS_PER_TURN,
+    )
     print(
         f"completed {result['description_count']} descriptions for "
-        f"{result['sample_count']} records: {result['output_dir']}"
+        f"{result['source_record_count']} source records: {result['output_dir']}"
     )
 
 
