@@ -37,7 +37,7 @@ export NURBS_CODE_COMMIT="${NURBS_CODE_COMMIT:-unknown}"
 RUNTIME_DIR="${PROJECT_DIR}/.pi-runtime-v038"
 mkdir -p "${RUNTIME_DIR}"
 cp "$HOME/.pi/agent/auth.json" "${RUNTIME_DIR}/auth.json"
-cp "$HOME/.pi/agent/models-store.json" "${RUNTIME_DIR}/models-store.json"
+cp "${PROJECT_DIR}/scripts/slurm/v038-models-store.json" "${RUNTIME_DIR}/models-store.json"
 cp "${PROJECT_DIR}/scripts/slurm/v038-models.json" "${RUNTIME_DIR}/models.json"
 python - <<'PY'
 import json
