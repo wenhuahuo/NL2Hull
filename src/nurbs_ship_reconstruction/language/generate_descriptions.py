@@ -32,8 +32,8 @@ MODELS = (
     "wokey/glm-5.3",
     "wokey/grok-4.7",
     "deepseek/deepseek-flash",
-    "openai-codex/gpt-5.6-sol",
-    "xiaomi/mimo-v2.6-pro",
+    "wokey/gpt-5.6-sol",
+    "openrouter/xiaomi/mimo-v2.6-pro",
 )
 
 
