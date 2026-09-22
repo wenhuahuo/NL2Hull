@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -381,12 +382,79 @@ def _aggregate(results: list[dict[str, Any]], *, jev: bool) -> dict[str, Any]:
     return summary
 
 
+def _evaluate_turn(
+    record: dict[str, Any],
+    turn_index: int,
+    spec: dict[str, Any],
+    *,
+    timeout: int,
+    jev_client: JevClient | None,
+) -> dict[str, Any]:
+    turn = record["language"]["turns"][turn_index]
+    target_actions = [
+        record["actions"][index] for index in turn["action_indices"]
+    ]
+    result = {
+        "sample_id": record["sample_id"],
+        "hull_id": record["hull_id"],
+        "turn_id": turn["turn_id"],
+        "input_text": turn["text"],
+        "target_actions": target_actions,
+        "status": "running",
+    }
+    try:
+        if spec["kind"] == "pi":
+            raw = run_pi_model(
+                _pi_prompt(record, turn_index), spec["model"], timeout=timeout
+            )
+            prediction = _parse_json(raw)
+            score = _score_standard(prediction, target_actions)
+            result.update({
+                "status": "completed",
+                "raw_response": raw,
+                "prediction": prediction,
+                "score": score,
+            })
+        else:
+            if jev_client is None:
+                raise RuntimeError("Jev client is not initialized")
+            state = (
+                f"hull_id={record['hull_id']}\n"
+                f"{_turn_context(record, turn_index)}"
+                f"current_user_input={turn['text']}"
+            )
+            response = jev_client.decide(state, _jev_questions())
+            prediction, numeric_supported = _jev_prediction(
+                response["answers"], target_actions
+            )
+            score = _score_jev(
+                prediction,
+                target_actions,
+                numeric_supported=numeric_supported,
+            )
+            result.update({
+                "status": "completed",
+                "raw_response": response,
+                "prediction": prediction,
+                "score": score,
+            })
+    except Exception as error:
+        result.update({
+            "status": "failed",
+            "failure_reason": f"{type(error).__name__}: {error}",
+        })
+    return result
+
+
 def run_benchmark(
     source_dir: Path,
     output_dir: Path,
     *,
     timeout: int = 180,
+    workers: int = 1,
 ) -> dict[str, Any]:
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
     if output_dir.exists():
         raise FileExistsError(f"output directory already exists: {output_dir}")
     output_dir.mkdir(parents=True)
@@ -403,6 +471,7 @@ def run_benchmark(
         "source_sha256": _digest(records),
         "sample_count": len(records),
         "turn_count": sum(len(record["language"]["turns"]) for record in records),
+        "workers": workers,
         "job_id": None,
         "status": "running",
         "models": model_specs,
@@ -413,65 +482,29 @@ def run_benchmark(
     results_by_model: dict[str, dict[str, Any]] = {}
 
     for model_name, spec in model_specs.items():
-        results = []
         if spec["kind"] == "jev":
             jev_client = JevClient(timeout=timeout)
-        for record in records:
-            for turn_index, turn in enumerate(record["language"]["turns"]):
-                target_actions = [
-                    record["actions"][index] for index in turn["action_indices"]
-                ]
-                base_result = {
-                    "sample_id": record["sample_id"],
-                    "hull_id": record["hull_id"],
-                    "turn_id": turn["turn_id"],
-                    "input_text": turn["text"],
-                    "target_actions": target_actions,
-                    "status": "running",
-                }
-                try:
-                    if spec["kind"] == "pi":
-                        raw = run_pi_model(
-                            _pi_prompt(record, turn_index), spec["model"], timeout=timeout
-                        )
-                        prediction = _parse_json(raw)
-                        score = _score_standard(prediction, target_actions)
-                        base_result.update({
-                            "status": "completed",
-                            "raw_response": raw,
-                            "prediction": prediction,
-                            "score": score,
-                        })
-                    else:
-                        state = (
-                            f"hull_id={record['hull_id']}\n"
-                            f"{_turn_context(record, turn_index)}"
-                            f"current_user_input={turn['text']}"
-                        )
-                        response = jev_client.decide(state, _jev_questions())
-                        prediction, numeric_supported = _jev_prediction(
-                            response["answers"], target_actions
-                        )
-                        score = _score_jev(
-                            prediction,
-                            target_actions,
-                            numeric_supported=numeric_supported,
-                        )
-                        base_result.update({
-                            "status": "completed",
-                            "raw_response": response,
-                            "prediction": prediction,
-                            "score": score,
-                        })
-                except Exception as error:
-                    base_result.update({
-                        "status": "failed",
-                        "failure_reason": f"{type(error).__name__}: {error}",
-                    })
-                results.append(base_result)
-                (output_dir / f"{model_name}_results.jsonl").write_text(
-                    "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in results)
+        cases = [
+            (record, turn_index)
+            for record in records
+            for turn_index in range(len(record["language"]["turns"]))
+        ]
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [
+                executor.submit(
+                    _evaluate_turn,
+                    record,
+                    turn_index,
+                    spec,
+                    timeout=timeout,
+                    jev_client=jev_client,
                 )
+                for record, turn_index in cases
+            ]
+            results = [future.result() for future in futures]
+        (output_dir / f"{model_name}_results.jsonl").write_text(
+            "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in results)
+        )
         summary = _aggregate(results, jev=spec["kind"] == "jev")
         (output_dir / f"{model_name}_summary.json").write_text(
             json.dumps(summary, indent=2, ensure_ascii=False) + "\n"
@@ -510,8 +543,14 @@ def main() -> None:
         default=Path("outputs") / REVISION,
     )
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
-    result = run_benchmark(args.source, args.output, timeout=args.timeout)
+    result = run_benchmark(
+        args.source,
+        args.output,
+        timeout=args.timeout,
+        workers=args.workers,
+    )
     print(
         f"completed {result['turn_count']} turns for "
         f"{len(result['models'])} models: {result['output_dir']}"
