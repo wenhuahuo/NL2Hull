@@ -117,3 +117,14 @@ def test_mapping_action_accepts_exact_magnitude():
     )
     assert changed[1].after["control_points"][1, 0] > 0.0
     assert evaluate_waterline_3d(changed[1]).shape[1] == 3
+
+
+def test_bow_longitudinal_actions_remain_ordered_at_large_magnitude():
+    for operation in ("forward", "aftward"):
+        changed = apply_ffd_actions(
+            _state(),
+            [FFDAction("bow", operation, magnitude_level=5)],
+        )
+        for waterline in changed:
+            path = evaluate_waterline_3d(waterline)
+            assert np.all(np.diff(path[:, 0]) >= -1e-10)

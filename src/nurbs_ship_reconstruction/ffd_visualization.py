@@ -35,7 +35,7 @@ def ffd_visualization_cases() -> list[tuple[str, str, FFDAction]]:
                 (
                     f"local_{region}_{operation}",
                     view,
-                    FFDAction(region, operation, magnitude_level=4),
+                    FFDAction(region, operation, magnitude_level=5),
                 )
             )
     cases.extend(
@@ -43,57 +43,57 @@ def ffd_visualization_cases() -> list[tuple[str, str, FFDAction]]:
             (
                 "local_midbody_outward",
                 "plan",
-                FFDAction("midbody", "outward", magnitude_level=4),
+                FFDAction("midbody", "outward", magnitude_level=5),
             ),
             (
                 "local_deck_upward",
                 "side",
-                FFDAction("deck", "upward", magnitude_level=4),
+                FFDAction("deck", "upward", magnitude_level=5),
             ),
             (
                 "local_bilge_outward",
                 "plan",
-                FFDAction("bilge", "outward", magnitude_level=4),
+                FFDAction("bilge", "outward", magnitude_level=5),
             ),
             (
                 "global_increase_length",
                 "side",
-                FFDAction("global", "increase_length", magnitude_level=4),
+                FFDAction("global", "increase_length", magnitude_level=5),
             ),
             (
                 "global_decrease_length",
                 "side",
-                FFDAction("global", "decrease_length", magnitude_level=4),
+                FFDAction("global", "decrease_length", magnitude_level=5),
             ),
             (
                 "global_increase_breadth",
                 "plan",
-                FFDAction("global", "increase_breadth", magnitude_level=4),
+                FFDAction("global", "increase_breadth", magnitude_level=5),
             ),
             (
                 "global_decrease_breadth",
                 "plan",
-                FFDAction("global", "decrease_breadth", magnitude_level=4),
+                FFDAction("global", "decrease_breadth", magnitude_level=5),
             ),
             (
                 "shape_bow_increase_fullness",
                 "plan",
-                FFDAction("bow", "increase_fullness", magnitude_level=4),
+                FFDAction("bow", "increase_fullness", magnitude_level=5),
             ),
             (
                 "shape_stern_decrease_fullness",
                 "plan",
-                FFDAction("stern", "decrease_fullness", magnitude_level=4),
+                FFDAction("stern", "decrease_fullness", magnitude_level=5),
             ),
             (
                 "shape_bow_increase_flare",
                 "plan",
-                FFDAction("bow", "increase_flare", magnitude_level=4),
+                FFDAction("bow", "increase_flare", magnitude_level=5),
             ),
             (
                 "shape_bulb_change_length",
                 "side",
-                FFDAction("bulb", "change_bulb_length", magnitude_level=4),
+                FFDAction("bulb", "change_bulb_length", magnitude_level=5),
             ),
         ]
     )

@@ -140,7 +140,13 @@ def _smoothstep(value: np.ndarray) -> np.ndarray:
     return value * value * (3.0 - 2.0 * value)
 
 
-def _window(values: np.ndarray, extent: tuple[float, float]) -> np.ndarray:
+def _window(
+    values: np.ndarray,
+    extent: tuple[float, float],
+    *,
+    include_lower: bool = False,
+    include_upper: bool = False,
+) -> np.ndarray:
     lower, upper = extent
     if lower == 0.0 and upper == 1.0:
         return np.ones_like(values)
@@ -149,8 +155,10 @@ def _window(values: np.ndarray, extent: tuple[float, float]) -> np.ndarray:
     left = _smoothstep((values - lower) / taper)
     right = _smoothstep((upper - values) / taper)
     result = left * right
-    result[np.isclose(values, lower)] = 1.0
-    result[np.isclose(values, upper)] = 1.0
+    if include_lower:
+        result[np.isclose(values, lower)] = 1.0
+    if include_upper:
+        result[np.isclose(values, upper)] = 1.0
     return result
 
 
@@ -211,7 +219,14 @@ def _action_mask(
     x_extent, z_extent = _action_extents(action)
     x_norm = (controls[:, 0] - x_min) / (x_max - x_min)
     z_norm = (controls[:, 2] - z_min) / (z_max - z_min)
-    mask = _window(x_norm, x_extent) * _window(z_norm, z_extent)
+    x_mask = _window(x_norm, x_extent)
+    z_mask = _window(
+        z_norm,
+        z_extent,
+        include_lower=z_extent[0] == 0.0,
+        include_upper=z_extent[1] == 1.0,
+    )
+    mask = x_mask * z_mask
     if bool(action.constraints.get("preserve_deck_line", False)):
         mask *= 1.0 - np.clip(z_norm, 0.0, 1.0)
     return mask
@@ -310,20 +325,25 @@ def _apply_action(waterlines: list[Waterline], action: FFDAction) -> list[Waterl
                 x_extent, z_extent = _action_extents(action)
                 x_norm = (controls[:, 0] - x_min) / length
                 z_norm = (controls[:, 2] - z_min) / depth
-                z_mask = _window(z_norm, z_extent)
+                z_mask = _window(
+                    z_norm,
+                    z_extent,
+                    include_lower=z_extent[0] == 0.0,
+                    include_upper=z_extent[1] == 1.0,
+                )
                 if action.constraints.get("preserve_deck_line"):
                     z_mask *= 1.0 - np.clip(z_norm, 0.0, 1.0)
-                sign = 1.0 if action.operation == "forward" else -1.0
-                lower = x_min + x_extent[0] * length
-                upper = x_min + x_extent[1] * length
+                sign = 1.0 if action.operation in {"forward", "change_bulb_length"} else -1.0
                 if action.region in {"bow", "bulb"}:
-                    active = (x_norm >= x_extent[0]) & (x_norm <= x_extent[1])
-                    factor = 1.0 + sign * value * z_mask
-                    controls[active, 0] = lower + (controls[active, 0] - lower) * factor[active]
+                    longitudinal = _smoothstep(
+                        (x_norm - x_extent[0]) / (x_extent[1] - x_extent[0])
+                    )
+                    controls[:, 0] += sign * value * length * longitudinal * z_mask
                 elif action.region == "stern":
-                    active = (x_norm >= x_extent[0]) & (x_norm <= x_extent[1])
-                    factor = 1.0 - sign * value * z_mask
-                    controls[active, 0] = upper + (controls[active, 0] - upper) * factor[active]
+                    longitudinal = _smoothstep(
+                        (x_extent[1] - x_norm) / (x_extent[1] - x_extent[0])
+                    )
+                    controls[:, 0] += sign * value * length * longitudinal * z_mask
                 else:
                     controls[:, 0] += sign * value * length * mask
             elif action.operation == "increase_length":
