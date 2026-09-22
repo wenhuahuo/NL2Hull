@@ -9,7 +9,7 @@ from typing import Mapping, Sequence
 import numpy as np
 import trimesh
 
-from .geometry import (
+from ..core.geometry import (
     HullInput,
     Waterline,
     _integral_parameters,

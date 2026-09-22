@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .pipeline import REVISION, run_benchmark
+from .reconstruction.pipeline import REVISION, run_benchmark
 
 
 def main() -> None:

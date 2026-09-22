@@ -1,7 +1,7 @@
 import numpy as np
 
-from nurbs_ship_reconstruction.geometry import _fit_half, _integral_parameters
-from nurbs_ship_reconstruction.nurbs import evaluate
+from nurbs_ship_reconstruction.core.geometry import _fit_half, _integral_parameters
+from nurbs_ship_reconstruction.core.nurbs import evaluate
 
 
 def test_waterline_area_and_centroid_of_a_rectangle():

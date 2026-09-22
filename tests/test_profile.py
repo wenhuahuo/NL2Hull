@@ -1,7 +1,7 @@
 import numpy as np
 
-from nurbs_ship_reconstruction.nurbs import evaluate
-from nurbs_ship_reconstruction.profile import (
+from nurbs_ship_reconstruction.core.nurbs import evaluate
+from nurbs_ship_reconstruction.core.profile import (
     PROFILE_CONTROL_COUNT,
     ProfileFit,
     STEM_COINCIDENT,

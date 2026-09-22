@@ -1,6 +1,6 @@
 import numpy as np
 
-from nurbs_ship_reconstruction.nurbs import basis_matrix, evaluate
+from nurbs_ship_reconstruction.core.nurbs import basis_matrix, evaluate
 
 
 def test_clamped_basis_partitions_unity_including_endpoints():

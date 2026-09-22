@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 
-from .geometry import HullInput, Waterline, evaluate_waterline
-from .profile import (
+from ..core.geometry import HullInput, Waterline, evaluate_waterline
+from ..core.profile import (
     ProfileFit,
     evaluate_profile_parameters,
     profile_parameter_vector,

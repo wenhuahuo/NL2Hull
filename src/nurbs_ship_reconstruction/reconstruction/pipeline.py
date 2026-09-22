@@ -10,15 +10,15 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from .geometry import (
+from ..core.geometry import (
     compare_meshes,
     extract_waterline,
     load_hull,
     skin_waterlines,
     waterline_record,
 )
-from .plotting import plot_comparison, plot_profile, plot_summary
-from .profile import fit_profile, profile_record
+from ..visualization.plotting import plot_comparison, plot_profile, plot_summary
+from ..core.profile import fit_profile, profile_record
 
 REVISION = "v020_watertight_loft"
 

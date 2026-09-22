@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from nurbs_ship_reconstruction.ffd import FFDAction, apply_ffd_actions
-from nurbs_ship_reconstruction.geometry import Waterline, evaluate_waterline_3d, skin_waterlines
+from nurbs_ship_reconstruction.core.geometry import Waterline, evaluate_waterline_3d, skin_waterlines
+from nurbs_ship_reconstruction.deformation.ffd import FFDAction, apply_ffd_actions
 
 
 def _waterline(z: float) -> Waterline:
