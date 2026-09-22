@@ -19,6 +19,7 @@ SOURCE_DATASET = "outputs/v036_structured_action_dataset_30000"
 DESCRIPTIONS_PER_TURN = 4
 DEFAULT_TIMEOUT = 180
 DEFAULT_WORKERS = 7
+MAX_ATTEMPTS = 3
 SEED = 20260922
 
 MODELS = (
@@ -67,12 +68,12 @@ def _turn_prompt(
         instruction = "请只表达当前动作。"
     return f"""你正在为船型变形数据集生成一条中文用户输入描述。
 {context}{instruction}
-这是同一结构化动作的第 {variant_index + 1} 种自然表达，请使用与其他表达不同但准确的句式。
+这是同一结构化动作的第 {variant_index + 1} 种自然表达，请使用与其他表达不同但准确的句式。可以改变句子结构、动词、程度副词和衔接方式，不要把某个变化等级固定翻译成唯一词语；所有表达仍需保持相同的相对变化大小。
 
 必须遵守：
 1. 只返回一条自然、简洁的中文用户句子，不要返回 JSON、解释、标题、项目符号或引号。
 2. 保留动作的区域、操作、相对变形大小和约束含义，不得增加输入 JSON 中没有的工程目标。
-3. 对有内部强度编码的动作，只使用自然的模糊表达：1=略微，2=稍微，3=适度，4=明显，5=显著。禁止在输出中出现内部编码、数字强度、幅度、等级、级别、强度或档位等词语。
+3. 对有内部强度编码的动作，只使用自然的模糊表达。可以在“略微、轻微、稍稍、稍微、小幅、适度、适当、较为、进一步、明显、较大、显著、大幅、充分”等表达中灵活选择，也可以调整语序和动词；禁止在输出中出现内部编码、数字强度、幅度、等级、级别、强度或档位等词语。表达的强弱必须与输入动作保持一致。
 4. 如果 magnitude_level 为 null，必须准确表达 magnitude_value、longitudinal_extent 和 vertical_extent 中的数值；逐字符复制每个小数，不得四舍五入、截断或改写；这种情况下可以使用“变形量”或“数值”。
 5. constraints 中的 preserve_displacement、preserve_deck_line 等约束必须在句子中体现。
 6. 不要引入米、毫米等物理单位；当前数据中的数值使用归一化参数。
@@ -123,15 +124,31 @@ def _task_result(task: dict[str, Any], *, timeout: int) -> dict[str, Any]:
         task["record"]["actions"][index]
         for index in task["action_indices"]
     ]
-    text = _validate_description(
-        run_pi_text(
-            task["prompt"],
-            model=task["model"],
-            thinking=DEFAULT_THINKING,
-            timeout=timeout,
-        ),
-        actions,
-    )
+    prompt = task["prompt"]
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            text = _validate_description(
+                run_pi_text(
+                    prompt,
+                    model=task["model"],
+                    thinking=DEFAULT_THINKING,
+                    timeout=timeout,
+                ),
+                actions,
+            )
+            break
+        except Exception as error:
+            last_error = error
+            prompt = (
+                task["prompt"]
+                + "\n上一条回答未通过格式或语义校验。请重新生成，只返回一条符合全部要求的中文用户句子。"
+                + "不要使用‘幅度、等级、级别、强度、档位’这些词，也不要解释校验过程。"
+            )
+    else:
+        raise RuntimeError(
+            f"failed after {MAX_ATTEMPTS} attempts: {type(last_error).__name__}: {last_error}"
+        )
     return {
         "record_index": task["record_index"],
         "turn_index": task["turn_index"],
@@ -139,6 +156,7 @@ def _task_result(task: dict[str, Any], *, timeout: int) -> dict[str, Any]:
         "variant_index": task["variant_index"],
         "model": task["model"],
         "thinking": DEFAULT_THINKING,
+        "attempts": attempt,
         "action_indices": task["action_indices"],
         "text": text,
     }
@@ -239,6 +257,7 @@ def _run_generation(
     timeout: int,
     workers: int,
     max_records: int | None = None,
+    task_limit: int | None = None,
     variants_per_turn: int = DESCRIPTIONS_PER_TURN,
 ) -> dict[str, Any]:
     if output_dir.exists():
@@ -247,8 +266,32 @@ def _run_generation(
         raise ValueError("workers must be positive")
     source_path, all_records = _load_records(source_dir)
     records = all_records if max_records is None else all_records[:max_records]
-    if max_records is not None and not records:
-        raise ValueError("smoke test selected no source records")
+    if task_limit is not None:
+        if task_limit < 1:
+            raise ValueError("task_limit must be positive")
+        selected_records = []
+        remaining = task_limit
+        for source_record in records:
+            if remaining <= 0:
+                break
+            turn_count = min(
+                len(source_record["turns"]),
+                (remaining + variants_per_turn - 1) // variants_per_turn,
+            )
+            if turn_count == len(source_record["turns"]):
+                selected_records.append(source_record)
+            else:
+                selected_record = dict(source_record)
+                selected_record["turns"] = source_record["turns"][:turn_count]
+                selected_records.append(selected_record)
+            remaining -= turn_count * variants_per_turn
+        if remaining != 0:
+            raise ValueError(
+                f"could not select {task_limit} descriptions from source records"
+            )
+        records = selected_records
+    if not records:
+        raise ValueError("selected no source records")
     if variants_per_turn < 1:
         raise ValueError("variants_per_turn must be positive")
     task_count = sum(len(record["turns"]) for record in records) * variants_per_turn
@@ -260,9 +303,11 @@ def _run_generation(
     manifest["description_count_target"] = task_count
     manifest["variants_per_turn"] = variants_per_turn
     manifest["workers"] = workers
-    if max_records is not None:
+    if max_records is not None or task_limit is not None:
         manifest["smoke_test"] = True
         manifest["full_source_record_count"] = len(all_records)
+        if task_limit is not None:
+            manifest["requested_description_count"] = task_limit
     output_dir.mkdir(parents=True)
     manifest_path = output_dir / "run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
@@ -323,6 +368,7 @@ def _run_generation(
                         "variant_index": variant_index,
                         "model": result["model"],
                         "thinking": result["thinking"],
+                        "attempts": result["attempts"],
                         "action_indices": result["action_indices"],
                         "text": result["text"],
                     })
@@ -334,6 +380,7 @@ def _run_generation(
                         "variant_index": variant_index,
                         "model": result["model"],
                         "thinking": result["thinking"],
+                        "attempts": result["attempts"],
                         "action_indices": result["action_indices"],
                         "text": result["text"],
                     }
@@ -386,9 +433,11 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--smoke-count", type=int, default=7)
     args = parser.parse_args()
     output = args.output
-    max_records = 1 if args.smoke_test else None
+    max_records = None
+    task_limit = args.smoke_count if args.smoke_test else None
     if args.smoke_test and output.name == REVISION:
         output = output.with_name(SMOKE_REVISION)
     result = _run_generation(
@@ -397,6 +446,7 @@ def main() -> None:
         timeout=args.timeout,
         workers=args.workers,
         max_records=max_records,
+        task_limit=task_limit,
         variants_per_turn=7 if args.smoke_test else DESCRIPTIONS_PER_TURN,
     )
     print(
