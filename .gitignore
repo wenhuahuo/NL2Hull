@@ -3,7 +3,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+.env
 outputs/
 datasets/
 .DS_Store
 *.egg-info/
+.pi-runtime-v038/
