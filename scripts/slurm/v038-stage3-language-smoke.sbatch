@@ -28,6 +28,10 @@ set -a
 source .env
 set +a
 export PYTHONPATH="${PROJECT_DIR}/src"
+CODE_REVISION_FILE="${PROJECT_DIR}/scripts/slurm/v038-code-revision.txt"
+if [[ -r "${CODE_REVISION_FILE}" ]]; then
+  NURBS_CODE_COMMIT="$(cat "${CODE_REVISION_FILE}")"
+fi
 export NURBS_CODE_COMMIT="${NURBS_CODE_COMMIT:-unknown}"
 
 RUNTIME_DIR="${PROJECT_DIR}/.pi-runtime-v038"
