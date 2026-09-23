@@ -19,6 +19,7 @@ PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 RUN_ROOT="${PROJECT_DIR}/outputs/v039_kev4b_ship"
 DATA_DIR="${RUN_ROOT}/data"
 INPUT_SNAPSHOT="${RUN_ROOT}/input_snapshot"
+SOURCE_SNAPSHOT="${PROJECT_DIR}/outputs/v039_kev4b_ship_input_snapshot"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 BASE_MODEL="Qwen/Qwen3.5-4B-Base"
@@ -53,8 +54,8 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
   echo "ERROR: missing structured action dataset" >&2
   exit 2
 }
-[[ -r "${PROJECT_DIR}/outputs/v038_stage3_language_150k_full/language_samples.jsonl" ]] || {
-  echo "ERROR: missing stage-three language checkpoint" >&2
+[[ -r "${SOURCE_SNAPSHOT}/language_samples.jsonl" ]] || {
+  echo "ERROR: missing frozen stage-three language snapshot" >&2
   exit 2
 }
 
@@ -80,11 +81,9 @@ if not torch.cuda.is_available():
     raise SystemExit("CUDA is unavailable")
 PY
 
-# Freeze the currently available stage-three checkpoint before preparing splits.
-cp "${PROJECT_DIR}/outputs/v038_stage3_language_150k_full/language_samples.jsonl" \
-   "${INPUT_SNAPSHOT}/language_samples.jsonl"
-cp "${PROJECT_DIR}/outputs/v038_stage3_language_150k_full/run_manifest.json" \
-   "${INPUT_SNAPSHOT}/run_manifest.json"
+# Copy the pre-submit stage-three snapshot into this run for immutable provenance.
+cp "${SOURCE_SNAPSHOT}/language_samples.jsonl" "${INPUT_SNAPSHOT}/language_samples.jsonl"
+cp "${SOURCE_SNAPSHOT}/run_manifest.json" "${INPUT_SNAPSHOT}/run_manifest.json"
 python "${PROJECT_DIR}/scripts/jev/prepare_kev_ship_data.py" \
   --samples "${INPUT_SNAPSHOT}/language_samples.jsonl" \
   --structured "${PROJECT_DIR}/outputs/v036_structured_action_dataset_30000/structured_actions.jsonl" \
