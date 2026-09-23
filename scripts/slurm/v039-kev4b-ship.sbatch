@@ -23,7 +23,8 @@ KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 BASE_MODEL="Qwen/Qwen3.5-4B-Base"
 BASE_REVISION="1001bb4d826a52d1f399e183466143f4da7b741b"
-KEV_CHECKPOINT="${HOME}/.cache/huggingface/hub/models--jaredpalmer--kev-4b/snapshots/485ace8703592fcf405488b262449990824cfed1"
+KEV_CHECKPOINT="${PROJECT_DIR}/third_party/models/kev-4b"
+HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
 
 if ! command -v module >/dev/null 2>&1; then
   source /etc/profile.d/openscow-modules.sh
@@ -59,6 +60,7 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 
 source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
+export HF_HOME
 export HF_HUB_OFFLINE=1
 KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
 CODE_COMMIT="$(cat "${PROJECT_DIR}/scripts/slurm/v039-code-revision.txt")"
