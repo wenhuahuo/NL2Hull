@@ -30,7 +30,6 @@ if ! command -v module >/dev/null 2>&1; then
   source /etc/profile.d/openscow-modules.sh
 fi
 module purge
-module load gcc/13.3.0
 module load miniconda3/py313_26.3.2-2
 source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 
