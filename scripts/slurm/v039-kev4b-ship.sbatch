@@ -54,8 +54,8 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 
 source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
-KEV_COMMIT="$(git -C "${KEV_SOURCE}" rev-parse HEAD)"
-CODE_COMMIT="$(git -C "${PROJECT_DIR}" rev-parse HEAD)"
+KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
+CODE_COMMIT="$(cat "${PROJECT_DIR}/scripts/slurm/v039-code-revision.txt")"
 mkdir -p logs/apps
 mkdir -p "${RUN_ROOT}" "${INPUT_SNAPSHOT}"
 
