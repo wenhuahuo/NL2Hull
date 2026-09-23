@@ -23,6 +23,7 @@ KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 BASE_MODEL="Qwen/Qwen3.5-4B-Base"
 BASE_REVISION="1001bb4d826a52d1f399e183466143f4da7b741b"
+KEV_CHECKPOINT="${HOME}/.cache/huggingface/hub/models--jaredpalmer--kev-4b/snapshots/485ace8703592fcf405488b262449990824cfed1"
 
 if ! command -v module >/dev/null 2>&1; then
   source /etc/profile.d/openscow-modules.sh
@@ -37,6 +38,10 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 }
 [[ -d "${KEV_SOURCE}/kev" ]] || {
   echo "ERROR: missing Kev source: ${KEV_SOURCE}" >&2
+  exit 2
+}
+[[ -f "${KEV_CHECKPOINT}/head.pt" && -f "${KEV_CHECKPOINT}/adapter_model.safetensors" ]] || {
+  echo "ERROR: missing cached Kev checkpoint: ${KEV_CHECKPOINT}" >&2
   exit 2
 }
 [[ ! -e "${RUN_ROOT}" ]] || {
@@ -54,6 +59,7 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 
 source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
+export HF_HUB_OFFLINE=1
 KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
 CODE_COMMIT="$(cat "${PROJECT_DIR}/scripts/slurm/v039-code-revision.txt")"
 mkdir -p logs/apps
@@ -94,7 +100,7 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
   "device": "cuda",
   "gpu": "${CUDA_VISIBLE_DEVICES:-unset}",
   "training": {
-    "init_from": "jaredpalmer/kev-4b",
+    "init_from": "jaredpalmer/kev-4b@485ace8703592fcf405488b262449990824cfed1",
     "epochs": 2,
     "lr": 0.00002,
     "batch": 1,
@@ -109,7 +115,7 @@ EOF
 
 for split in validation test; do
   python -m kev.benchmark \
-    --run jaredpalmer/kev-4b \
+    --run "${KEV_CHECKPOINT}" \
     --data "${DATA_DIR}/${split}.jsonl" \
     --device cuda \
     --out "${RUN_ROOT}/baseline_${split}"
@@ -119,7 +125,7 @@ python -m kev.train \
   --data "${DATA_DIR}/train.jsonl" \
   --base "${BASE_MODEL}" \
   --base_revision "${BASE_REVISION}" \
-  --init_from jaredpalmer/kev-4b \
+  --init_from "${KEV_CHECKPOINT}" \
   --epochs 2 \
   --lr 2e-5 \
   --batch 1 \
