@@ -316,6 +316,7 @@ def _base_manifest(
         "source_record_count": len(records),
         "source_turn_count": turn_count,
         "description_count_target": turn_count * variants_per_turn,
+        "variants_per_turn": variants_per_turn,
         "description_count_completed": 0,
         "provider_framework": "pi print mode",
         "models": list(MODELS),
