@@ -162,7 +162,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
-    records = [json.loads(line) for line in args.data.read_text().splitlines() if line.strip()]
+    # Use Kev's loader so custom JSONL receives the same benchmark metadata
+    # (id/group/variant/source) as records loaded by kev.benchmark.
+    from kev.data import load_records
+    records = load_records(args.data)
     if not records:
         raise ValueError("empty Kev test set")
     args.output.mkdir(parents=True)

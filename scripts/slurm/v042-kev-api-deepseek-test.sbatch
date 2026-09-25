@@ -18,7 +18,7 @@ PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test.jsonl"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_pi_eval.py"
-OUTPUT_DIR="${PROJECT_DIR}/outputs/v042_kev_api_deepseek_test"
+OUTPUT_DIR="${PROJECT_DIR}/outputs/v042_kev_api_deepseek_test_retry"
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
 module purge
