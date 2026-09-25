@@ -18,13 +18,14 @@ PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test.jsonl"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_pi_eval.py"
-OUTPUT_DIR="${PROJECT_DIR}/outputs/v042_kev_api_deepseek_test_retry"
+OUTPUT_DIR="${PROJECT_DIR}/outputs/v042_kev_api_deepseek_test_retry2"
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
 module purge
 module load miniconda3/py313_26.3.2-2
 module load pi/0.87.0
 source "${CONDA_ROOT}/etc/profile.d/conda.sh"
+source "${HOME}/.conda/envs/kev-v039/bin/activate"
 cd "${PROJECT_DIR}"
 [[ -r "${DATA_FILE}" && -r "${EVAL_SCRIPT}" && -r .env ]] || { echo "ERROR: missing Kev API evaluation input, script, or .env" >&2; exit 2; }
 [[ -d "${KEV_SOURCE}/kev" ]] || { echo "ERROR: missing Kev source" >&2; exit 2; }
