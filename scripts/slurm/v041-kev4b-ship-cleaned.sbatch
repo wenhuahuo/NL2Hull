@@ -18,17 +18,14 @@ set -euo pipefail
 PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 REVISION="v041_kev4b_ship_cleaned"
 RUN_ROOT="${PROJECT_DIR}/outputs/${REVISION}"
-DATA_DIR="${RUN_ROOT}/data"
-INPUT_SNAPSHOT="${RUN_ROOT}/input_snapshot"
-SOURCE_SNAPSHOT="${PROJECT_DIR}/outputs/${REVISION}_input_snapshot"
+DATASET_DIR="${PROJECT_DIR}/datasets/kev_ship_cleaned_dataset"
+DATA_DIR="${DATASET_DIR}"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 BASE_MODEL="Qwen/Qwen3.5-4B-Base"
 BASE_REVISION="1001bb4d826a52d1f399e183466143f4da7b741b"
 KEV_CHECKPOINT="${PROJECT_DIR}/third_party/models/kev-4b"
 HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
-STRUCTURED="${PROJECT_DIR}/outputs/v036_structured_action_dataset_30000/structured_actions.jsonl"
-PREPARE_SCRIPT="${PROJECT_DIR}/scripts/jev/prepare_kev_ship_data.py"
 TRAIN_SCRIPT="${PROJECT_DIR}/scripts/slurm/v041-kev4b-ship-cleaned.sbatch"
 
 if ! command -v module >/dev/null 2>&1; then
@@ -44,16 +41,29 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
   echo "ERROR: missing cached Kev checkpoint" >&2; exit 2
 }
 [[ ! -e "${RUN_ROOT}" ]] || { echo "ERROR: refusing to overwrite ${RUN_ROOT}" >&2; exit 2; }
-[[ -r "${SOURCE_SNAPSHOT}/language_samples.jsonl" ]] || { echo "ERROR: missing cleaned language snapshot" >&2; exit 2; }
-[[ -r "${SOURCE_SNAPSHOT}/selection_manifest.json" ]] || { echo "ERROR: missing selection manifest" >&2; exit 2; }
-[[ -r "${STRUCTURED}" && -r "${PREPARE_SCRIPT}" ]] || { echo "ERROR: missing Kev input files" >&2; exit 2; }
+for split in train validation test; do
+  [[ -r "${DATASET_DIR}/${split}.jsonl" ]] || { echo "ERROR: missing ${DATASET_DIR}/${split}.jsonl" >&2; exit 2; }
+done
+[[ -r "${DATASET_DIR}/manifest.json" && -r "${DATASET_DIR}/selection_manifest.json" ]] || {
+  echo "ERROR: missing dataset provenance manifest" >&2; exit 2
+}
+python3 - "${DATASET_DIR}/manifest.json" <<'PY'
+import json, sys
+from pathlib import Path
+manifest = json.loads(Path(sys.argv[1]).read_text())
+if manifest.get("revision") != "kev_ship_cleaned_dataset":
+    raise SystemExit(f"unexpected dataset revision: {manifest.get('revision')}")
+if manifest.get("record_count") != 134558:
+    raise SystemExit(f"unexpected record count: {manifest.get('record_count')}")
+print(f"verified dataset revision={manifest['revision']} records={manifest['record_count']}")
+PY
 
 source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
 export HF_HOME
 export HF_HUB_OFFLINE=1
 mkdir -p logs/apps
-mkdir -p "${RUN_ROOT}" "${INPUT_SNAPSHOT}"
+mkdir -p "${RUN_ROOT}"
 
 CODE_COMMIT="unknown"
 if git -C "${PROJECT_DIR}" rev-parse HEAD >/dev/null 2>&1; then
@@ -61,8 +71,8 @@ if git -C "${PROJECT_DIR}" rev-parse HEAD >/dev/null 2>&1; then
 fi
 KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
 SCRIPT_SHA256="$(sha256sum "${TRAIN_SCRIPT}" | awk '{print $1}')"
-PREPARE_SHA256="$(sha256sum "${PREPARE_SCRIPT}" | awk '{print $1}')"
-STRUCTURED_SHA256="$(sha256sum "${STRUCTURED}" | awk '{print $1}')"
+DATASET_MANIFEST_SHA256="$(sha256sum "${DATASET_DIR}/manifest.json" | awk '{print $1}')"
+DATASET_FILES_SHA256="$(sha256sum "${DATASET_DIR}/train.jsonl" "${DATASET_DIR}/validation.jsonl" "${DATASET_DIR}/test.jsonl" | sha256sum | awk '{print $1}')"
 
 printf 'job=%s name=%s host=%s start=%s revision=%s code=%s kev=%s\n' \
   "${SLURM_JOB_ID}" "${SLURM_JOB_NAME}" "$(hostname)" "$(date -Is)" \
@@ -78,40 +88,19 @@ if not torch.cuda.is_available():
     raise SystemExit("CUDA is unavailable")
 PY
 
-cp "${SOURCE_SNAPSHOT}/language_samples.jsonl" "${INPUT_SNAPSHOT}/language_samples.jsonl"
-cp "${SOURCE_SNAPSHOT}/selection_manifest.json" "${INPUT_SNAPSHOT}/selection_manifest.json"
-if [[ -f "${SOURCE_SNAPSHOT}/cleaning_manifest.json" ]]; then
-  cp "${SOURCE_SNAPSHOT}/cleaning_manifest.json" "${INPUT_SNAPSHOT}/cleaning_manifest.json"
-fi
-python - "${INPUT_SNAPSHOT}/language_samples.jsonl" "${INPUT_SNAPSHOT}/selection_manifest.json" <<'PY'
-import hashlib, json, sys
-from pathlib import Path
-samples, manifest = map(Path, sys.argv[1:])
-actual = hashlib.sha256(samples.read_bytes()).hexdigest()
-expected = json.loads(manifest.read_text())["language_samples_sha256"]
-if actual != expected:
-    raise SystemExit(f"snapshot hash mismatch: {actual} != {expected}")
-print(f"verified language snapshot sha256={actual}")
-PY
-
-python "${PREPARE_SCRIPT}" \
-  --samples "${INPUT_SNAPSHOT}/language_samples.jsonl" \
-  --structured "${STRUCTURED}" \
-  --output "${DATA_DIR}"
-
 cat > "${RUN_ROOT}/run_config.json" <<EOF
 {
   "revision": "${REVISION}",
   "job_id": "${SLURM_JOB_ID}",
   "code_commit": "${CODE_COMMIT}",
   "script_sha256": "${SCRIPT_SHA256}",
-  "prepare_script_sha256": "${PREPARE_SHA256}",
   "kev_commit": "${KEV_COMMIT}",
   "base_model": "${BASE_MODEL}",
   "base_revision": "${BASE_REVISION}",
-  "input_snapshot": "${INPUT_SNAPSHOT}/language_samples.jsonl",
-  "data_manifest": "${DATA_DIR}/manifest.json",
-  "structured_sha256": "${STRUCTURED_SHA256}",
+  "dataset_dir": "${DATASET_DIR}",
+  "data_manifest": "${DATASET_DIR}/manifest.json",
+  "dataset_manifest_sha256": "${DATASET_MANIFEST_SHA256}",
+  "dataset_files_sha256": "${DATASET_FILES_SHA256}",
   "device": "cuda",
   "gpu": "${CUDA_VISIBLE_DEVICES:-unset}",
   "training": {

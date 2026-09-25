@@ -62,9 +62,10 @@ evidence. The new Slurm entry point is:
 scripts/slurm/v041-kev4b-ship-cleaned.sbatch
 ```
 
-It refuses to overwrite an existing run directory, verifies the frozen input hash,
-records code/script/data hashes, materializes a fresh Kev data directory, and runs
-baseline validation/test benchmarks before training.
+It refuses to overwrite an existing run directory, verifies the frozen dataset
+manifest and record count, records code/script/data hashes, uses the fixed dataset
+without in-place regeneration, and runs baseline validation/test benchmarks before
+training.
 
 Smoke outputs, smoke scripts, and smoke logs were removed only after confirming that no
 jobs were running or queued. The formal reconstruction smoke outputs under earlier
