@@ -1,4 +1,4 @@
-"""Extract and fit the paper's stem/stern NURBS contours from the STL center plane."""
+"""Extract and fit project stem/stern NURBS contours from the STL center plane."""
 
 from __future__ import annotations
 

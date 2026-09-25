@@ -13,7 +13,6 @@ from ..core.geometry import (
     HullInput,
     Waterline,
     _integral_parameters,
-    evaluate_waterline,
     evaluate_waterline_3d,
     extract_waterline,
     skin_waterlines,
@@ -242,16 +241,8 @@ def _action_mask(
 
 
 def _volume(waterlines: Sequence[Waterline]) -> float:
-    areas = []
-    levels = []
-    for waterline in waterlines:
-        x, width = evaluate_waterline(waterline, samples=128)
-        x = np.concatenate((x[:128], x[129:]))
-        width = np.abs(np.concatenate((width[:128], width[129:])))
-        area, _, _ = _integral_parameters(x, width)
-        areas.append(area)
-        levels.append(waterline.z)
-    return float(np.trapezoid(areas, levels))
+    """Measure the current loft volume, including non-horizontal deformations."""
+    return float(skin_waterlines(waterlines, samples=48).volume)
 
 
 def _refresh_waterline(waterline: Waterline) -> None:

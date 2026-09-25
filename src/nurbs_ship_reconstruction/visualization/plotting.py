@@ -143,8 +143,8 @@ def plot_comparison(
     ax = axes[2, 1]
     names = ["surface\nRMSE", "surface\n95%", "width\nRMSE"]
     values = [
-        metrics["surface_vertex_chamfer_rmse"],
-        metrics["surface_vertex_hausdorff95"],
+        metrics["vertex_nn_rmse"],
+        metrics["vertex_nn_p95"],
         metrics["waterline_width_rmse"],
     ]
     ax.bar(names, values, color=["tab:blue", "tab:orange", "tab:green"])
@@ -265,8 +265,8 @@ def plot_summary(rows: list[dict], output_path: Path) -> None:
     width = 0.25
     fig, ax = plt.subplots(figsize=(14, 6), constrained_layout=True)
     for offset, key, label in [
-        (0.0, "surface_vertex_chamfer_rmse", "surface RMSE"),
-        (width, "surface_vertex_hausdorff95", "surface 95%"),
+        (0.0, "vertex_nn_rmse", "vertex NN RMSE"),
+        (width, "vertex_nn_p95", "vertex NN 95%"),
         (2 * width, "waterline_width_rmse", "waterline RMSE"),
     ]:
         ax.bar(x + offset, [row[key] for row in rows], width, label=label)

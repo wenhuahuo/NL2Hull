@@ -23,6 +23,14 @@ METRICS = (
     "error_rate_at_0_9",
     "confidence_bias",
 )
+LOWER_IS_BETTER = {
+    "nll", "ece", "brier", "score_mae", "ranked_probability_score",
+    "aurc", "error_rate_at_0_9",
+}
+HIGHER_IS_BETTER = {
+    "acc", "coverage_at_0_9", "accuracy_at_0_9",
+    "coverage_at_5pct_error", "coverage_at_1pct_error",
+}
 
 
 def _clean(report: dict[str, Any]) -> dict[str, Any]:
@@ -55,6 +63,16 @@ def main() -> None:
         "trained_clean": after,
         "delta_trained_minus_baseline": {
             key: _delta(before.get(key), after.get(key))
+            for key in sorted(set(before) | set(after))
+        },
+        "improvement_trained_minus_baseline": {
+            key: (
+                -_delta(before.get(key), after.get(key))
+                if key in LOWER_IS_BETTER
+                else _delta(before.get(key), after.get(key))
+                if key in HIGHER_IS_BETTER
+                else None
+            )
             for key in sorted(set(before) | set(after))
         },
         "baseline_coverage": baseline.get("coverage"),
