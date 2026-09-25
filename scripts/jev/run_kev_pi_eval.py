@@ -182,13 +182,18 @@ def main() -> None:
     }
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     result_items: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [executor.submit(evaluate_one, record, args.model, args.thinking, args.timeout, args.retries)
-                   for record in records]
-        for future in as_completed(futures):
-            result_items.append(future.result())
-            if len(result_items) % 50 == 0:
-                print(f"evaluated {len(result_items)}/{len(records)}", flush=True)
+    # Flush each answer immediately: interrupted API jobs retain auditable progress.
+    with (args.output / "progress.jsonl").open("w") as progress:
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = [executor.submit(evaluate_one, record, args.model, args.thinking, args.timeout, args.retries)
+                       for record in records]
+            for future in as_completed(futures):
+                item = future.result()
+                result_items.append(item)
+                progress.write(json.dumps(item, ensure_ascii=False) + "\n")
+                progress.flush()
+                if len(result_items) % 50 == 0:
+                    print(f"evaluated {len(result_items)}/{len(records)}", flush=True)
 
     # Import the upstream Kev metric implementation only on the cluster, where third_party/kev is available.
     from kev.benchmark import prediction_rows, summarize

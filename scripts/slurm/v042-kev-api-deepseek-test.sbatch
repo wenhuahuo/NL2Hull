@@ -16,9 +16,9 @@ set -euo pipefail
 export PYTHONNOUSERSITE=1
 PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
-DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test.jsonl"
+DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_pi_eval.py"
-OUTPUT_DIR="${PROJECT_DIR}/outputs/v042_kev_api_deepseek_test_retry2"
+OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_api_deepseek_test_5k"
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
 module purge
@@ -28,6 +28,16 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 source "${HOME}/.conda/envs/kev-v039/bin/activate"
 cd "${PROJECT_DIR}"
 [[ -r "${DATA_FILE}" && -r "${EVAL_SCRIPT}" && -r .env ]] || { echo "ERROR: missing Kev API evaluation input, script, or .env" >&2; exit 2; }
+python - "${DATA_FILE}" "${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+path, meta = map(Path, sys.argv[1:])
+manifest = json.loads(meta.read_text())
+actual = hashlib.sha256(path.read_bytes()).hexdigest()
+if actual != manifest['subset_sha256'] or manifest['subset_records'] != 5000:
+    raise SystemExit('frozen 5k test subset mismatch')
+print(f'verified frozen subset: {actual}')
+PY
 [[ -d "${KEV_SOURCE}/kev" ]] || { echo "ERROR: missing Kev source" >&2; exit 2; }
 [[ ! -e "${OUTPUT_DIR}" ]] || { echo "ERROR: refusing to overwrite ${OUTPUT_DIR}" >&2; exit 2; }
 command -v pi >/dev/null || { echo "ERROR: pi is unavailable" >&2; exit 2; }
@@ -46,5 +56,5 @@ python -u "${EVAL_SCRIPT}" \
   --thinking low \
   --workers "${SLURM_CPUS_PER_TASK}" \
   --timeout 180 \
-  --retries 2
+  --retries 1
 printf 'job=%s finished=%s output=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${OUTPUT_DIR}"
