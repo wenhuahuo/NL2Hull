@@ -60,8 +60,6 @@ def _source_stl(hull_dir: Path, metadata: dict) -> Path:
 
 
 def load_hull(hull_dir: Path) -> HullInput:
-    with (hull_dir / "benchmark.yaml").open() as stream:
-        benchmark = yaml.safe_load(stream)
     with (hull_dir / "metadata.yaml").open() as stream:
         metadata = yaml.safe_load(stream)
     source_path = _source_stl(hull_dir, metadata)
@@ -393,7 +391,6 @@ def _closed_waterline_ring(
     """
     if len(x) < 4 or len(x) != len(width):
         raise ValueError("waterline ring needs matching stern-to-bow samples")
-    interior = len(x) - 2
     z_values = np.asarray(z, dtype=float)
     if z_values.ndim == 0:
         z_values = np.full(len(x), float(z_values))

@@ -156,12 +156,13 @@ def _score_standard(
     field_correct = {field: 0 for field in fields}
     action_exact = 0
     for index, target in enumerate(target_actions):
+        for field in fields:
+            field_totals[field] += 1
         if index >= len(predicted_actions) or not isinstance(predicted_actions[index], dict):
             continue
         predicted_action = predicted_actions[index]
         action_is_exact = True
         for field in fields:
-            field_totals[field] += 1
             correct = _value_equal(
                 _action_value(predicted_action, field),
                 _action_value(target, field),
@@ -311,12 +312,13 @@ def _score_jev(
     field_correct = {field: 0 for field in fields}
     exact = 0
     for index, target in enumerate(target_actions):
+        for field in fields:
+            field_totals[field] += 1
         if index >= len(predicted_actions):
             continue
         candidate = predicted_actions[index]
         action_is_exact = True
         for field in fields:
-            field_totals[field] += 1
             if field == "magnitude_mode":
                 target_value = (
                     "qualitative"

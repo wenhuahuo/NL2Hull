@@ -49,6 +49,12 @@ TRAIN_HULLS = {
 }
 VALIDATION_HULLS = {"s_175_u_water", "series60"}
 TEST_HULLS = {"wigley_hull", "work_boat"}
+ROLLBACK_CATEGORIES_WITH_INVALID_LABELS = {
+    "undo_previous_step",
+    "restore_original_state",
+    "change_back_previous_plan",
+    "multi_action_combination_rollback",
+}
 
 
 def _digest(path: Path) -> str:
@@ -116,6 +122,8 @@ def _question(action: dict[str, Any], index: int) -> dict[str, Any]:
 
 def _convert_sample(sample: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
     actions = [source["actions"][index] for index in sample["action_indices"]]
+    if len(actions) not in ACTION_COUNTS:
+        raise ValueError(f"Kev conversion supports 1-3 actions, found {len(actions)}")
     questions: dict[str, dict[str, Any]] = {
         "action_count": {
             "type": "choice",
@@ -151,39 +159,90 @@ def _split(hull_id: str) -> str:
     raise ValueError(f"unassigned hull: {hull_id}")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--samples", type=Path, required=True)
-    parser.add_argument("--structured", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-
-    source = {
-        record["sample_id"]: record
-        for record in (json.loads(line) for line in args.structured.read_text().splitlines())
-    }
-    samples = [json.loads(line) for line in args.samples.read_text().splitlines() if line.strip()]
-    if not samples:
-        raise ValueError("language checkpoint is empty")
-
-    output = args.output
-    output.mkdir(parents=True, exist_ok=False)
-    split_records: dict[str, list[dict[str, Any]]] = {"train": [], "validation": [], "test": []}
+def _validated_splits(
+    samples: list[dict[str, Any]], source: dict[str, dict[str, Any]],
+    *, exclude_invalid_rollback: bool, deduplicate_text: bool,
+) -> tuple[dict[str, list[dict[str, Any]]], Counter[str]]:
+    splits: dict[str, list[dict[str, Any]]] = {"train": [], "validation": [], "test": []}
     seen_keys: set[str] = set()
+    counts: Counter[str] = Counter()
     for sample in samples:
         key = sample["task_key"]
         if key in seen_keys:
             raise ValueError(f"duplicate task_key: {key}")
         seen_keys.add(key)
-        if sample["sample_id"] not in source:
+        if exclude_invalid_rollback and sample.get("augmentation_category") in ROLLBACK_CATEGORIES_WITH_INVALID_LABELS:
+            counts["excluded_invalid_rollback"] += 1
+            continue
+        record = source.get(sample["sample_id"])
+        if record is None:
             raise ValueError(f"missing structured source: {sample['sample_id']}")
-        split_records[_split(sample["hull_id"])].append(
-            _convert_sample(sample, source[sample["sample_id"]])
-        )
+        if sample["hull_id"] != record["hull_id"]:
+            raise ValueError(f"hull mismatch for {key}")
+        indices = sample["action_indices"]
+        if not indices or any(not isinstance(i, int) or i < 0 or i >= len(record["actions"]) for i in indices):
+            raise ValueError(f"invalid action_indices for {key}")
+        if sample.get("augmentation_category") == "continuous_multi_step":
+            if not any(turn["output_actions"] == indices for turn in record["turns"]):
+                raise ValueError(f"source turn mismatch for {key}")
+        else:
+            turn_index = sample["turn_index"]
+            if not 0 <= turn_index < len(record["turns"]) or record["turns"][turn_index]["output_actions"] != indices:
+                raise ValueError(f"source turn mismatch for {key}")
+        splits[_split(sample["hull_id"])].append(sample)
 
-    for split, records in split_records.items():
+    if deduplicate_text:
+        # Prefer the held-out partitions: an identical request must never appear in training.
+        owners: dict[str, str] = {}
+        labels: dict[str, str] = {}
+        for split in ("test", "validation", "train"):
+            retained = []
+            for sample in splits[split]:
+                text = sample["text"]
+                actions = [source[sample["sample_id"]]["actions"][i] for i in sample["action_indices"]]
+                label = json.dumps(actions, sort_keys=True, ensure_ascii=False)
+                if text in owners:
+                    if labels[text] != label:
+                        raise ValueError(f"conflicting labels for identical text: {text!r}")
+                    counts[f"duplicate_removed_{split}"] += 1
+                    continue
+                owners[text], labels[text] = split, label
+                retained.append(sample)
+            splits[split] = retained
+    return splits, counts
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--samples", type=Path, required=True)
+    parser.add_argument("--structured", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--exclude-invalid-rollback", action="store_true")
+    parser.add_argument("--deduplicate-text", action="store_true")
+    args = parser.parse_args()
+
+    source = {}
+    for line in args.structured.read_text().splitlines():
+        record = json.loads(line)
+        sample_id = record["sample_id"]
+        if sample_id in source:
+            raise ValueError(f"duplicate structured sample_id: {sample_id}")
+        source[sample_id] = record
+    samples = [json.loads(line) for line in args.samples.read_text().splitlines() if line.strip()]
+    if not samples:
+        raise ValueError("language checkpoint is empty")
+    split_samples, excluded = _validated_splits(
+        samples, source, exclude_invalid_rollback=args.exclude_invalid_rollback,
+        deduplicate_text=args.deduplicate_text,
+    )
+    output = args.output
+    output.mkdir(parents=True, exist_ok=False)
+    split_records: dict[str, list[dict[str, Any]]] = {"train": [], "validation": [], "test": []}
+    for split, rows in split_samples.items():
         with (output / f"{split}.jsonl").open("w", encoding="utf-8") as handle:
-            for record in records:
+            for sample in rows:
+                record = _convert_sample(sample, source[sample["sample_id"]])
+                split_records[split].append(record)
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     manifest = {
@@ -192,7 +251,9 @@ def main() -> None:
         "samples_sha256": _digest(args.samples),
         "structured": str(args.structured),
         "structured_sha256": _digest(args.structured),
-        "record_count": len(samples),
+        "input_count": len(samples),
+        "record_count": sum(map(len, split_records.values())),
+        "excluded_counts": dict(excluded),
         "split_counts": {split: len(records) for split, records in split_records.items()},
         "hulls": {
             split: sorted({record["_meta"]["hull_id"] for record in records})
@@ -202,10 +263,11 @@ def main() -> None:
             split: sum(len(record["questions"]) for record in records)
             for split, records in split_records.items()
         },
-        "models": dict(Counter(sample["model"] for sample in samples)),
+        "models": dict(Counter(sample["model"] for rows in split_samples.values() for sample in rows)),
         "numeric_magnitude_note": (
             "Kev evaluates explicit numeric mode and typed categorical fields; it does not regress the numeric values or ranges."
         ),
+        "rollback_note": "Rollback categories with invalid labels are excluded when requested; remaining continuous edits do not prove undo capability.",
     }
     (output / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"

@@ -14,8 +14,8 @@ CENTER_PLANE_Y = 1e-4
 STEM_X_MIN = 0.65
 STERN_X_MAX = 0.35
 PROFILE_CONTROL_COUNT = 32
-# Paper 2.2: stem has 14 controls with two double vertices; stern has 19
-# controls with two triples and one double vertex.
+# Retained as explicit fixtures for the paper-profile fitting tests; the active
+# production fit uses 32 free controls for both contours instead.
 STEM_COINCIDENT = ((4, 5), (9, 10))
 STERN_COINCIDENT = ((3, 4, 5), (6, 7, 8), (11, 12), (15, 16, 17))
 

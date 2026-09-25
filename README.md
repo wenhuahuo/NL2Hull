@@ -30,8 +30,8 @@ Earlier runs are kept as evidence:
 - `v008_classic_hulls_nurbs_skinning`: full-height run stopped on NPL keel waterline split
 - `v009_classic_hulls_nurbs_skinning`: full-height reconstruction; original STL views still looked like scatter
 - `v010_classic_hulls_nurbs_skinning`: original and lofted STLs drawn as shaded gray meshes
-- `v011_classic_hulls_nurbs_skinning`: center-plane 14/19-point stem/stern extraction and fit
-- `v012_range_profile_extraction`: complete ordered fore/aft x-range extraction before the existing 14/19-point fit
+- `v011_classic_hulls_nurbs_skinning`: center-plane stem/stern extraction and initial fit
+- `v012_range_profile_extraction`: complete ordered fore/aft x-range extraction before the profile fit
 - `v014_fixed_profile_parameters`: fixed 24-control-point stem/stern profile parameter vector prototype
 - `v018_fixed_profile_combined_features`: combined 32-control profile with repeated deck knot and local bulb knots
 - `v018b_fixed_profile_combined_features`: corrected combined-feature run with explicit model metadata
@@ -74,14 +74,15 @@ python -m nurbs_ship_reconstruction.cli --hull wigley_hull --levels 12 \
    Comparison figures render both the source STL and the lofted reconstruction
    as gray triangle meshes, not vertex scatter plots. The center-plane
    intersection of the source STL is split into stem and stern contours and
-   fitted with the paper's 14- and 19-control cubic NURBS models; those
+   fitted with the project's current 32-control degree-3 B-spline models;
+   the stem model additionally uses repeated deck and local bulb knots. These
    feature lines are reported separately and do not replace waterline endpoints.
 
 Each hull result contains:
 
 - `source_parameters.json`: extracted waterline targets and NURBS control data;
 - `reconstructed_hull.stl`: lofted full-height hull;
-- `metrics.json`: bidirectional sampled vertex distances and waterline errors;
+- `metrics.json`: bidirectional sampled-vertex nearest-neighbor distances and waterline errors;
 - `comparison.png`: original and lofted gray-mesh plan/side views, waterline fit, and error bars;
 - `profile_stem_stern.png`: center-plane extraction and stem/stern NURBS fit.
 

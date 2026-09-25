@@ -37,6 +37,12 @@ def test_standard_score_accepts_exact_explicit_values():
     assert score["turn_exact"]
 
 
+def test_missing_predicted_action_counts_as_incorrect_field_values():
+    score = _score_standard({"actions": []}, [_action()])
+    assert all(value == 1 for value in score["field_totals"].values())
+    assert all(value == 0 for value in score["field_correct"].values())
+
+
 def test_jev_explicit_mode_is_part_of_semantic_score():
     target = _action(
         magnitude_level=None,

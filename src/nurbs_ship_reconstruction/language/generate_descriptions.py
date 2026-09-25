@@ -139,15 +139,16 @@ def _validate_description(
     forbidden = ("幅度", "等级", "级别", "强度", "档位")
     if any(term in value for term in forbidden):
         raise ValueError("generated description exposes internal intensity coding")
-    if all(action["magnitude_level"] is None for action in actions):
-        for action in actions:
-            values = [
-                action["magnitude_value"],
-                *action["longitudinal_extent"],
-                *action["vertical_extent"],
-            ]
-            if any(str(number) not in value for number in values):
-                raise ValueError("explicit action values are missing from description")
+    for action in actions:
+        if action["magnitude_level"] is not None:
+            continue
+        values = [
+            action["magnitude_value"],
+            *action["longitudinal_extent"],
+            *action["vertical_extent"],
+        ]
+        if any(str(number) not in value for number in values):
+            raise ValueError("explicit action values are missing from description")
     return value
 
 

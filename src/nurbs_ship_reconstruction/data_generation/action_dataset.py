@@ -251,7 +251,6 @@ def _execute_candidate(
     current = baseline
     action_objects = [FFDAction.from_mapping(action) for action in candidate["actions"]]
     outputs = []
-    action_cursor = 0
     for turn in candidate["turns"]:
         turn_actions = [
             action_objects[index] for index in turn["output_actions"]
@@ -265,12 +264,13 @@ def _execute_candidate(
             "action_indices": turn["output_actions"],
             "metrics": _metrics(mesh, original_mesh.volume),
         })
-        action_cursor += len(turn_actions)
     candidate["execution"] = {
         "status": "completed",
         "baseline_metrics": _metrics(original_mesh, original_mesh.volume),
         "turn_results": outputs,
-        "final_action_count": action_cursor,
+        "final_action_count": sum(
+            len(turn["output_actions"]) for turn in candidate["turns"]
+        ),
     }
     return candidate
 
