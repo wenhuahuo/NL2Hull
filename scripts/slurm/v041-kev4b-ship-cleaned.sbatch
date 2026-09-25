@@ -18,7 +18,7 @@ set -euo pipefail
 PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 REVISION="v041_kev4b_ship_cleaned"
 RUN_ROOT="${PROJECT_DIR}/outputs/${REVISION}"
-DATASET_DIR="${PROJECT_DIR}/datasets/kev_ship_cleaned_dataset"
+DATASET_DIR="${PROJECT_DIR}/datasets/kev_ship_dataset"
 DATA_DIR="${DATASET_DIR}"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
@@ -51,7 +51,7 @@ python3 - "${DATASET_DIR}/manifest.json" <<'PY'
 import json, sys
 from pathlib import Path
 manifest = json.loads(Path(sys.argv[1]).read_text())
-if manifest.get("revision") != "kev_ship_cleaned_dataset":
+if manifest.get("revision") != "kev_ship_dataset":
     raise SystemExit(f"unexpected dataset revision: {manifest.get('revision')}")
 if manifest.get("record_count") != 134558:
     raise SystemExit(f"unexpected record count: {manifest.get('record_count')}")
