@@ -20,8 +20,8 @@ DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_jev_eval.py"
 case "${MODE}" in
-  smoke) LIMIT=2; CAP=0.01; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_smoke" ;;
-  full) LIMIT=5000; CAP=1.00; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_test_5k" ;;
+  smoke) LIMIT=2; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_smoke_v2" ;;
+  full) LIMIT=5000; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_test_5k_v2" ;;
   *) echo "ERROR: choose smoke or full" >&2; exit 2 ;;
 esac
 
@@ -51,8 +51,8 @@ source .env
 set +a
 [[ -n "${OPENROUTER_API_KEY:-}" ]] || { echo "ERROR: OPENROUTER_API_KEY is not configured" >&2; exit 2; }
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
-printf 'job=%s mode=%s model=%s records=%s cap_usd=%s start=%s\n' \
-  "${SLURM_JOB_ID}" "${MODE}" '~typesafe/jev-latest' "${LIMIT}" "${CAP}" "$(date -Is)"
+printf 'job=%s mode=%s model=%s records=%s start=%s\n' \
+  "${SLURM_JOB_ID}" "${MODE}" '~typesafe/jev-latest' "${LIMIT}" "$(date -Is)"
 python -u "${EVAL_SCRIPT}" --data "${DATA_FILE}" --output "${OUTPUT_DIR}" \
-  --limit "${LIMIT}" --max-cost-usd "${CAP}" --timeout 180
+  --limit "${LIMIT}" --timeout 180
 printf 'job=%s finished=%s output=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${OUTPUT_DIR}"

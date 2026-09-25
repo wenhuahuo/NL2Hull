@@ -59,10 +59,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=5000)
     parser.add_argument("--timeout", type=int, default=180)
-    parser.add_argument("--max-cost-usd", type=float, default=1.0)
     args = parser.parse_args()
-    if args.limit < 1 or args.max_cost_usd <= 0:
-        raise ValueError("invalid limit or cost cap")
+    if args.limit < 1:
+        raise ValueError("limit must be positive")
     if args.output.exists():
         raise FileExistsError(args.output)
     from kev.benchmark import prediction_rows, summarize
@@ -78,20 +77,15 @@ def main() -> None:
         "data": str(args.data), "data_sha256": digest(args.data), "record_count": len(records),
         "model": JEV_MODEL, "endpoint": JEV_URL,
         "protocol": "native OpenRouter Jev; same labelled requests and Kev benchmark metrics",
-        "max_cost_usd": args.max_cost_usd, "status": "running",
+        "status": "running",
     }
     write_json(args.output / "run_manifest.json", manifest)
     rows = []
     latencies = []
-    cost = 0.0
-    input_tokens = output_tokens = 0
     processed = 0
     failure = None
     with (args.output / "predictions.jsonl").open("w") as output:
         for record in records:
-            if cost >= args.max_cost_usd:
-                failure = f"cost cap reached: ${cost:.6f}"
-                break
             started = time.perf_counter()
             try:
                 request = api_request(record)
@@ -99,23 +93,17 @@ def main() -> None:
                 pred = {"probabilities": probabilities(record, response),
                         "latency_ms": (time.perf_counter() - started) * 1000}
                 new_rows = prediction_rows(record, pred)
-                usage = response.get("usage") or {}
-                if usage.get("cost") is None:
-                    raise ValueError("Jev response omitted usage.cost; cost cap cannot be enforced")
-                cost += float(usage["cost"])
-                input_tokens += int(usage.get("input_tokens") or 0)
-                output_tokens += int(usage.get("output_tokens") or 0)
                 output.write(json.dumps({
                     "request_sha256": record_digest(request), "id": record["_meta"]["id"],
                     "prediction": pred, "rows": new_rows, "model": response.get("model"),
-                    "usage": usage, "request_id": response.get("request_id"),
+                    "request_id": response.get("request_id"),
                 }, ensure_ascii=False, allow_nan=False) + "\n")
                 output.flush()
                 rows.extend(new_rows)
                 latencies.append(pred["latency_ms"])
                 processed += 1
                 if processed % 50 == 0:
-                    print(f"evaluated {processed}/{len(records)} cost_usd={cost:.6f}", flush=True)
+                    print(f"evaluated {processed}/{len(records)}", flush=True)
             except (requests.RequestException, ValueError, KeyError, TypeError) as error:
                 failure = f"{type(error).__name__}: {error}"
                 break
@@ -131,17 +119,15 @@ def main() -> None:
                            "p95": sorted(latencies)[min(len(latencies) - 1, math.ceil(len(latencies) * 0.95) - 1)]},
             "model": JEV_MODEL, "endpoint": JEV_URL, "split": "custom",
             "data": str(args.data), "data_sha256": digest(args.data),
-            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens, "cost_usd": cost},
             "failure": failure,
         })
         write_json(args.output / "report.json", report)
     manifest.update({"status": "completed" if processed == len(records) else "incomplete",
                      "evaluated_records": processed, "failure": failure,
-                     "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens, "cost_usd": cost},
                      "finished_at": datetime.now(timezone.utc).isoformat()})
     write_json(args.output / "run_manifest.json", manifest)
     print(json.dumps({"status": manifest["status"], "evaluated_records": processed,
-                      "requested_records": len(records), "cost_usd": cost, "failure": failure}, indent=2))
+                      "requested_records": len(records), "failure": failure}, indent=2))
     if processed != len(records):
         raise SystemExit(1)
 
