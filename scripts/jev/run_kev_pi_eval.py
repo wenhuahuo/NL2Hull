@@ -4,14 +4,21 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from benchmarks.unified_action import (
+    actions_from_kev,
+    aggregate_action_results,
+    score_actions,
+    target_actions_from_kev,
+    validate_probabilities,
+)
 from nurbs_ship_reconstruction.agents.pi_runner import run_pi_text
 
 
@@ -29,14 +36,6 @@ def render(value: Any, indent: int = 0) -> str:
         else f"{pad}{key}: {render(item)}"
         for key, item in value.items()
     )
-
-
-def question_keys(question: dict[str, Any]) -> list[str]:
-    if question["type"] == "choice":
-        return list(question["criteria"])
-    if question["type"] == "noul":
-        return ["false", "true"]
-    return [str(index) for index in range(len(question["criteria"]))]
 
 
 def option_lines(question: dict[str, Any]) -> list[str]:
@@ -105,39 +104,36 @@ def probabilities(record: dict[str, Any], parsed: dict[str, Any]) -> dict[str, d
     answers = parsed.get("answers")
     if not isinstance(answers, dict):
         raise ValueError("response has no answers object")
-    result: dict[str, dict[str, float]] = {}
+    raw_prediction: dict[str, dict[str, float]] = {}
     for qid, question in record["questions"].items():
         answer = answers.get(qid)
         if not isinstance(answer, dict):
             raise ValueError(f"missing answer: {qid}")
-        keys = question_keys(question)
         raw = answer.get("probabilities")
         if question["type"] == "noul" and raw is None and "noul" in answer:
             value = float(answer["noul"])
             raw = {"false": 1.0 - value, "true": value}
-        if not isinstance(raw, dict) or set(raw) != set(keys):
-            raise ValueError(f"probability keys differ for {qid}")
-        values = {key: float(raw[key]) for key in keys}
-        if any(value < 0 or value > 1 for value in values.values()):
-            raise ValueError(f"probability outside [0,1] for {qid}")
-        total = sum(values.values())
-        if total <= 0:
-            raise ValueError(f"probability sum is zero for {qid}")
-        result[qid] = {key: value / total for key, value in values.items()}
-    return result
+        if not isinstance(raw, dict):
+            raise ValueError(f"missing probabilities for {qid}")
+        raw_prediction[qid] = raw
+    return validate_probabilities(record, raw_prediction)
 
 
 def evaluate_one(record: dict[str, Any], model: str, thinking: str, timeout: int, retries: int) -> dict[str, Any]:
     start = time.perf_counter()
-    result = {"id": record["_meta"]["id"], "record": record}
+    result = {"id": record["_meta"]["id"], "record": record,
+              "target_actions": target_actions_from_kev(record)}
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
             raw = run_pi_text(prompt_for(record), model=model, thinking=thinking, timeout=timeout)
             parsed = parse_json(raw)
             probs = probabilities(record, parsed)
+            action_prediction = actions_from_kev(record, probs)
             result.update({"status": "completed", "raw_response": raw,
                            "prediction": {"probabilities": probs},
+                           "action_prediction": action_prediction,
+                           "score": score_actions(action_prediction, result["target_actions"]),
                            "latency_ms": 1000 * (time.perf_counter() - start),
                            "attempts": attempt + 1})
             return result
@@ -219,6 +215,7 @@ def main() -> None:
         "coverage": {"requested_records": len(records), "requested_questions": sum(len(r["questions"]) for r in records),
                      "evaluated_records": len(result_items) - len(failures),
                      "evaluated_questions": len(rows), "rejected_records": len(failures)},
+        "ffd_accuracy": aggregate_action_results(result_items),
         "failures": failures,
         "latency_ms": {"mean": sum(item["latency_ms"] for item in result_items) / len(result_items),
                        "p95": sorted(item["latency_ms"] for item in result_items)[max(0, int(len(result_items) * 0.95) - 1)]},

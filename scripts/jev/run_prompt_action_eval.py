@@ -4,19 +4,15 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-FIELDS = (
-    "region", "operation", "magnitude_level", "magnitude_value",
-    "longitudinal_extent", "vertical_extent", "symmetry", "constraints",
-)
+from benchmarks.unified_action import aggregate_action_results, score_actions
 
 
 def digest(path: Path) -> str:
@@ -28,36 +24,21 @@ def digest(path: Path) -> str:
 
 
 def prompt_for(record: dict[str, Any]) -> str:
-    previous = ""
-    if record["previous_turns"]:
-        previous = "此前同一任务的历史输入：\n" + "\n".join(
-            f"- {text}" for text in record["previous_turns"]
-        ) + "\n"
-    return f"""你是船舶设计专家和 NURBS/FFD 动作解析器。请把当前用户输入转换为严格 JSON。
-{previous}当前用户输入：
+    return f"""你是船舶设计动作解析器。请把当前用户输入转换为严格 JSON。
+当前用户输入：
 {record['text']}
 
 只返回一个 JSON 对象，不要 Markdown、解释或额外文字：
 {{"actions":[{{
   "region":"bow|stern|bulb|midbody|deck|bilge|global",
-  "operation":"outward|inward|upward|downward|forward|aftward|increase_fullness|decrease_fullness|increase_flare|change_bulb_length|increase_length|decrease_length|increase_breadth|decrease_breadth",
-  "magnitude_level":1,
-  "magnitude_value":null,
-  "longitudinal_extent":null,
-  "vertical_extent":null,
-  "symmetry":true,
-  "constraints":{{}}
+  "operation":"outward|inward|upward|downward|forward|aftward|increase_fullness|decrease_fullness|increase_flare|change_bulb_length|increase_length|decrease_length|increase_breadth|decrease_breadth"
 }}]}}
 
 规则：
-- 多个动作按用户表达顺序输出多个对象。
-- 略微、稍微、适度、明显、显著分别对应 magnitude_level 1、2、3、4、5。
-- 明确给出数值时 magnitude_level 必须为 null，并原样填写数值和范围。
-- 没有明确数值的范围字段填写 null。
-- 未提到的 constraints 使用空对象。
-- constraints 只能使用 preserve_displacement 和 preserve_deck_line。
-- 未说明对称性时 symmetry 使用 true。
-- 只解析当前用户输入，不重复输出历史动作。
+- actions 数量必须等于当前输入表达的动作数量。
+- 多个动作按当前输入的表达顺序输出。
+- 只输出 region 和 operation，不输出其他字段。
+- 只解析当前用户输入，不使用或重复历史轮次。
 """
 
 
@@ -92,43 +73,8 @@ def parse_json(text: str) -> dict[str, Any]:
     return result
 
 
-def value_equal(left: Any, right: Any) -> bool:
-    if isinstance(right, list):
-        if not isinstance(left, list) or len(left) != len(right):
-            return False
-        return all(value_equal(a, b) for a, b in zip(left, right))
-    if isinstance(right, (int, float)) and not isinstance(right, bool):
-        try:
-            return abs(float(left) - float(right)) <= 1e-8
-        except (TypeError, ValueError):
-            return False
-    return left == right
-
-
 def score(predicted: dict[str, Any], target: list[dict[str, Any]]) -> dict[str, Any]:
-    actions = predicted.get("actions")
-    if not isinstance(actions, list):
-        raise ValueError("JSON object has no actions list")
-    totals = {field: len(target) for field in FIELDS}
-    correct = {field: 0 for field in FIELDS}
-    exact = 0
-    for index, expected in enumerate(target):
-        if index >= len(actions) or not isinstance(actions[index], dict):
-            continue
-        candidate = actions[index]
-        is_exact = True
-        for field in FIELDS:
-            ok = value_equal(candidate.get(field), expected.get(field))
-            correct[field] += int(ok)
-            is_exact &= ok
-        exact += int(is_exact)
-    return {
-        "action_count_correct": len(actions) == len(target),
-        "action_exact": exact,
-        "turn_exact": len(actions) == len(target) and exact == len(target),
-        "field_totals": totals,
-        "field_correct": correct,
-    }
+    return score_actions(predicted, target)
 
 
 def evaluate_one(record: dict[str, Any], base_url: str, model: str, timeout: int) -> dict[str, Any]:
@@ -167,7 +113,9 @@ def main() -> None:
     if result_path.exists():
         for line in result_path.read_text().splitlines():
             if line.strip():
-                completed_keys.add(json.loads(line)["task_key"])
+                item = json.loads(line)
+                if item.get("status") == "completed":
+                    completed_keys.add(item["task_key"])
     pending = [record for record in records if record["task_key"] not in completed_keys]
     manifest = {
         "revision": args.output.name,
@@ -191,25 +139,21 @@ def main() -> None:
                 stream.flush()
 
     results = [json.loads(line) for line in result_path.read_text().splitlines() if line.strip()]
-    totals = defaultdict(int)
-    correct = defaultdict(int)
-    completed = [result for result in results if result["status"] == "completed"]
-    for result in completed:
-        totals["turns"] += 1
-        correct["turn_exact"] += int(result["score"]["turn_exact"])
-        for field, value in result["score"]["field_totals"].items():
-            totals[field] += value
-            correct[field] += result["score"]["field_correct"][field]
+    action_summary = aggregate_action_results(results)
     summary = {
         "record_count": len(records),
-        "completed_records": len(completed),
-        "failed_records": len(results) - len(completed),
-        "turn_exact_rate": correct["turn_exact"] / totals["turns"] if totals["turns"] else 0.0,
-        "field_accuracy": {field: correct[field] / totals[field] for field in FIELDS if totals[field]},
+        "completed_records": action_summary["completed_turns"],
+        "failed_records": action_summary["failed_turns"],
+        "turn_exact_rate": action_summary["turn_exact_rate"],
+        "field_accuracy": action_summary["field_accuracy"],
+        "field_correct": action_summary["field_correct"],
+        "field_totals": action_summary["field_totals"],
+        "ffd_accuracy": action_summary,
         "failures": [r for r in results if r["status"] != "completed"],
     }
     (args.output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
-    manifest.update({"status": "completed", "completed_records": len(completed), "failed_records": len(results) - len(completed),
+    manifest.update({"status": "completed", "completed_records": action_summary["completed_turns"],
+                     "failed_records": action_summary["failed_turns"],
                      "completed_at": datetime.now(timezone.utc).isoformat()})
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

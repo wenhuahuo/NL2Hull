@@ -4,14 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-import json
 from pathlib import Path
 from typing import Any
 
-from nurbs_ship_reconstruction.agents.pi_runner import run_pi_text
 from run_prompt_action_eval import digest, parse_json, prompt_for, score
+
+from benchmarks.unified_action import aggregate_action_results
+from nurbs_ship_reconstruction.agents.pi_runner import run_pi_text
 
 
 def evaluate_one(record: dict[str, Any], model: str, thinking: str, timeout: int) -> dict[str, Any]:
@@ -70,20 +72,14 @@ def main() -> None:
                 stream.flush()
     results = [json.loads(line) for line in result_path.read_text().splitlines() if line.strip()]
     completed = [result for result in results if result["status"] == "completed"]
-    totals: dict[str, int] = {"turns": 0}
-    correct: dict[str, int] = {"turn_exact": 0}
-    for result in completed:
-        totals["turns"] += 1
-        correct["turn_exact"] += int(result["score"]["turn_exact"])
-        for field, value in result["score"]["field_totals"].items():
-            totals[field] = totals.get(field, 0) + value
-            correct[field] = correct.get(field, 0) + result["score"]["field_correct"][field]
+    action_summary = aggregate_action_results(results)
     summary = {
         "record_count": len(records),
-        "completed_records": len(completed),
-        "failed_records": len(results) - len(completed),
-        "turn_exact_rate": correct["turn_exact"] / totals["turns"] if totals["turns"] else 0.0,
-        "field_accuracy": {field: correct[field] / totals[field] for field in totals if field != "turns" and totals[field]},
+        "completed_records": action_summary["completed_turns"],
+        "failed_records": action_summary["failed_turns"],
+        "turn_exact_rate": action_summary["turn_exact_rate"],
+        "field_accuracy": action_summary["field_accuracy"],
+        "ffd_accuracy": action_summary,
         "failures": [result for result in results if result["status"] != "completed"],
     }
     (args.output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
