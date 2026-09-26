@@ -95,12 +95,12 @@ def _criteria(items: tuple[str, ...]) -> dict[str, str]:
     return {item: item for item in items}
 
 
-def _jev_questions() -> dict[str, Any]:
+def _jev_questions(action_count: int) -> dict[str, Any]:
     return {
         "action_count": {
             "type": "choice",
             "instructions": "How many deformation actions are expressed in the current user input?",
-            "criteria": {"1": "one action", "2": "two actions", "3": "three actions"},
+            "criteria": {"one": "one action", "two": "two actions", "three": "three actions"},
         },
         **{
             key: {
@@ -108,7 +108,7 @@ def _jev_questions() -> dict[str, Any]:
                 "instructions": f"Which {field} is action slot {index} about?",
                 "criteria": _criteria(values),
             }
-            for index in range(1, 4)
+            for index in range(1, action_count + 1)
             for field, values in (("region", REGIONS), ("operation", OPERATIONS))
             for key in (f"{field}_{index}",)
         },
@@ -123,18 +123,15 @@ def _answer_choice(answers: dict[str, Any], name: str) -> Any:
 def _jev_prediction(
     answers: dict[str, Any], target_actions: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    count_raw = _answer_choice(answers, "action_count")
-    try:
-        count = int(count_raw)
-    except (TypeError, ValueError):
-        count = 0
+    count_names = {"one": 1, "two": 2, "three": 3}
+    count = count_names.get(_answer_choice(answers, "action_count"), 0)
     return {
         "actions": [
             {
                 "region": _answer_choice(answers, f"region_{index}"),
                 "operation": _answer_choice(answers, f"operation_{index}"),
             }
-            for index in range(1, max(0, min(count, 3)) + 1)
+            for index in range(1, count + 1)
         ]
     }
 
@@ -188,8 +185,8 @@ def _evaluate_turn(
         else:
             if jev_client is None:
                 raise RuntimeError("Jev client is not initialized")
-            state = f"hull_id={record['hull_id']}\ncurrent_user_input={turn['text']}"
-            response = jev_client.decide(state, _jev_questions())
+            state = turn["text"]
+            response = jev_client.decide(state, _jev_questions(len(target_actions)))
             prediction = _jev_prediction(response["answers"], target_actions)
             score = _score_jev(prediction, target_actions)
             result.update({
