@@ -126,7 +126,9 @@ def evaluate_one(record: dict[str, Any], model: str, thinking: str, timeout: int
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            raw = run_pi_text(prompt_for(record), model=model, thinking=thinking, timeout=timeout)
+            raw = run_pi_text(
+                prompt_for(record), model=model, thinking=thinking, timeout=timeout, provider="deepseek"
+            )
             parsed = parse_json(raw)
             probs = probabilities(record, parsed)
             action_prediction = actions_from_kev(record, probs)

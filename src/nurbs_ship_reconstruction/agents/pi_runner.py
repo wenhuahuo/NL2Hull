@@ -15,6 +15,7 @@ def run_pi_text(
     model: str = PI_MODEL,
     thinking: str = DEFAULT_THINKING,
     timeout: int = 120,
+    provider: str | None = None,
 ) -> str:
     """Return one print-mode response from pi without extensions or tools."""
     command = [
@@ -30,6 +31,7 @@ def run_pi_text(
         thinking,
         "--model",
         model,
+        *(["--provider", provider] if provider else []),
         "-p",
         "--",
         prompt,
