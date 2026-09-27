@@ -96,12 +96,18 @@ def actions_from_kev(
     if count_key not in count_names:
         raise ValueError(f"unsupported action count key: {count_key}")
     count = count_names[count_key]
-    actions = []
     for index in range(1, count + 1):
-        actions.append({
+        if f"region_{index}" not in record["questions"] or f"operation_{index}" not in record["questions"]:
+            raise ValueError(
+                f"predicted action count {count} exceeds the request's available action slots"
+            )
+    actions = [
+        {
             "region": _argmax(probabilities[f"region_{index}"]),
             "operation": _argmax(probabilities[f"operation_{index}"]),
-        })
+        }
+        for index in range(1, count + 1)
+    ]
     return {"actions": actions}
 
 
