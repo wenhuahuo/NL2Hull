@@ -129,7 +129,7 @@ def probabilities(record: dict[str, Any], parsed: dict[str, Any]) -> dict[str, d
 
 def evaluate_one(record: dict[str, Any], model: str, provider: str | None, thinking: str, timeout: int, retries: int) -> dict[str, Any]:
     start = time.perf_counter()
-    result = {"id": record["_meta"]["id"], "record": record}
+    result = {"id": record["_meta"]["task_key"], "record": record}
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
