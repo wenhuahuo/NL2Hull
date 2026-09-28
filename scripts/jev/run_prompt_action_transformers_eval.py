@@ -64,7 +64,7 @@ def main() -> None:
         raise FileExistsError(args.output)
 
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForImageTextToText, AutoTokenizer
 
     records = [
         evaluation_record(json.loads(line))
@@ -79,7 +79,7 @@ def main() -> None:
         raise RuntimeError("CUDA is required for local Transformers evaluation")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, local_files_only=True)
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForImageTextToText.from_pretrained(
         args.model,
         torch_dtype=torch.bfloat16,
         device_map="cuda",
