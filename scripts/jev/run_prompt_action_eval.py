@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-from benchmarks.unified_action import aggregate_action_results, score_actions
+from benchmarks.unified_action import (
+    aggregate_action_results,
+    score_actions,
+    target_actions_from_kev,
+)
 
 
 def digest(path: Path) -> str:
@@ -77,6 +81,20 @@ def score(predicted: dict[str, Any], target: list[dict[str, Any]]) -> dict[str, 
     return score_actions(predicted, target)
 
 
+def evaluation_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Normalize prompt and Kev records to the direct-action evaluation schema."""
+    if "text" in record and "target_actions" in record:
+        return record
+    metadata = record["_meta"]
+    return {
+        "task_key": metadata["task_key"],
+        "sample_id": metadata["sample_id"],
+        "hull_id": metadata["hull_id"],
+        "text": record["state"],
+        "target_actions": target_actions_from_kev(record),
+    }
+
+
 def evaluate_one(record: dict[str, Any], base_url: str, model: str, timeout: int) -> dict[str, Any]:
     result = {
         "task_key": record["task_key"],
@@ -103,10 +121,17 @@ def main() -> None:
     parser.add_argument("--model", required=True)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--limit", type=int)
     args = parser.parse_args()
-    if args.workers < 1:
-        raise ValueError("workers must be positive")
-    records = [json.loads(line) for line in args.data.read_text().splitlines() if line.strip()]
+    if args.workers < 1 or (args.limit is not None and args.limit < 1):
+        raise ValueError("workers and limit must be positive")
+    records = [
+        evaluation_record(json.loads(line))
+        for line in args.data.read_text().splitlines()
+        if line.strip()
+    ]
+    if args.limit is not None:
+        records = records[:args.limit]
     args.output.mkdir(parents=True, exist_ok=True)
     result_path = args.output / "results.jsonl"
     completed_keys = set()
