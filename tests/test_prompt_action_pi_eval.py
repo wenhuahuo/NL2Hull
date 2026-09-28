@@ -2,8 +2,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 _spec = spec_from_file_location(
-    "run_prompt_action_eval",
-    Path(__file__).parents[1] / "scripts/jev/run_prompt_action_eval.py",
+    "run_prompt_action_pi_eval",
+    Path(__file__).parents[1] / "scripts/jev/run_prompt_action_pi_eval.py",
 )
 _module = module_from_spec(_spec)
 assert _spec.loader is not None

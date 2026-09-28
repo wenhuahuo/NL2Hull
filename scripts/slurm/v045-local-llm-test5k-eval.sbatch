@@ -17,7 +17,7 @@ MODEL_KEY="${1:?model key required: llama32, qwen35, or gemma3}"
 PROJECT_DIR=/data/home/wenhua_huo/Documents/NurbsShipGen
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_prompt_action_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_prompt_action_pi_eval.py"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 VLLM_ENV="${HOME}/.conda/envs/vllm-qwen3"
 QWEN_DIR="${PROJECT_DIR}/third_party/models/Qwen3.5-4B"
@@ -72,11 +72,14 @@ print(f"verified records=5000 sha256={hash_value}")
 PY
 
 SERVER_LOG="${PROJECT_DIR}/logs/apps/${SLURM_JOB_NAME}-${SLURM_JOB_ID}-server.log"
-mkdir -p "${PROJECT_DIR}/logs/apps"
+RUNTIME_DIR="${PROJECT_DIR}/logs/apps/pi-runtime-${MODEL_KEY}-${SLURM_JOB_ID}"
+PROVIDER="${MODEL_KEY}-local"
+mkdir -p "${PROJECT_DIR}/logs/apps" "${RUNTIME_DIR}"
 SERVER_PID=""
 cleanup() { [[ -z "${SERVER_PID}" ]] || kill "${SERVER_PID}" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/jev"
+export PI_CODING_AGENT_DIR="${RUNTIME_DIR}"
 export HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
 export HF_ENDPOINT="https://hf-mirror.com"
 
@@ -109,14 +112,36 @@ for _ in $(seq 1 180); do
 done
 [[ -n "${MODEL_ID}" ]] || { echo "ERROR: model server did not become ready" >&2; tail -n 80 "${SERVER_LOG}" >&2 || true; exit 1; }
 
-printf 'job=%s model=%s model_id=%s server=%s records=%s data_sha256=%s start=%s\n' \
-  "${SLURM_JOB_ID}" "${MODEL_KEY}" "${MODEL_ID}" "${SERVER_KIND}" \
+cat > "${RUNTIME_DIR}/models.json" <<JSON
+{
+  "providers": {
+    "${PROVIDER}": {
+      "baseUrl": "${BASE_URL}",
+      "api": "openai-completions",
+      "apiKey": "local",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [{
+        "id": "${MODEL_ID}",
+        "name": "${MODEL_KEY} local",
+        "reasoning": false,
+        "contextWindow": 32768,
+        "maxTokens": 1024
+      }]
+    }
+  }
+}
+JSON
+printf 'job=%s model=%s provider=%s model_id=%s server=%s records=%s data_sha256=%s start=%s\n' \
+  "${SLURM_JOB_ID}" "${MODEL_KEY}" "${PROVIDER}" "${MODEL_ID}" "${SERVER_KIND}" \
   "$(wc -l < "${DATA_FILE}")" "$(sha256sum "${DATA_FILE}" | cut -d" " -f1)" "$(date -Is)"
 "${KEV_ENV}/bin/python" -u "${EVAL_SCRIPT}" \
   --data "${DATA_FILE}" \
   --output "${OUTPUT_DIR}" \
-  --base-url "${BASE_URL}" \
+  --provider "${PROVIDER}" \
   --model "${MODEL_ID}" \
-  --workers "${SLURM_CPUS_PER_TASK}" \
+  --workers 4 \
   --timeout 180
 printf 'job=%s finished=%s output=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${OUTPUT_DIR}"
