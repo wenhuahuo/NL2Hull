@@ -13,44 +13,50 @@
 #SBATCH --error=logs/slurm/%x-%j.err
 
 set -euo pipefail
-MODEL_KEY="${1:?model key required: llama32, qwen35, or gemma3}"
+MODEL_KEY="${1:?model key required: llama32, qwen3, or gemma3}"
+LIMIT="${2:-}"
+REVISION=v045
 PROJECT_DIR=/data/home/wenhua_huo/Documents/NurbsShipGen
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_prompt_action_pi_eval.py"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 VLLM_ENV="${HOME}/.conda/envs/vllm-qwen3"
-QWEN_DIR="${PROJECT_DIR}/third_party/models/Qwen3.5-4B"
+QWEN_DIR="${PROJECT_DIR}/third_party/models/Qwen3-4B-Instruct-2507"
 LLAMA_DIR="${PROJECT_DIR}/third_party/models/llama-3.2-3b-instruct"
 GEMMA_DIR="${PROJECT_DIR}/third_party/models/gemma-3-4b-it"
 PORT=8000
 BASE_URL="http://127.0.0.1:${PORT}/v1"
 
 case "${MODEL_KEY}" in
-  qwen35)
+  qwen3)
     MODEL_DIR="${QWEN_DIR}"
-    SERVER_KIND=transformers
-    OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_qwen35_test5k_eval"
+    SERVER_KIND=vllm
+    SERVED_NAME=qwen3-4b-instruct
     ;;
   llama32)
     MODEL_DIR="${LLAMA_DIR}"
     SERVER_KIND=vllm
     SERVED_NAME=llama-3.2-3b-instruct
-    OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_llama32_test5k_eval"
     ;;
   gemma3)
     MODEL_DIR="${GEMMA_DIR}"
     SERVER_KIND=vllm
     SERVED_NAME=gemma-3-4b-it
-    OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_gemma3_test5k_eval"
     ;;
   *) echo "ERROR: unknown model key ${MODEL_KEY}" >&2; exit 2 ;;
 esac
+if [[ -n "${LIMIT}" ]]; then
+  OUTPUT_DIR="${PROJECT_DIR}/outputs/${REVISION}_${MODEL_KEY}_test1_smoke"
+else
+  OUTPUT_DIR="${PROJECT_DIR}/outputs/${REVISION}_${MODEL_KEY}_test5k_eval"
+fi
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
 module purge
 module load gcc/13.3.0
 module load miniconda3/py313_26.3.2-2
+module load pi/0.87.0
 source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 source "${KEV_ENV}/bin/activate"
 cd "${PROJECT_DIR}"
@@ -76,25 +82,22 @@ RUNTIME_DIR="${PROJECT_DIR}/logs/apps/pi-runtime-${MODEL_KEY}-${SLURM_JOB_ID}"
 PROVIDER="${MODEL_KEY}-local"
 mkdir -p "${PROJECT_DIR}/logs/apps" "${RUNTIME_DIR}"
 SERVER_PID=""
-cleanup() { [[ -z "${SERVER_PID}" ]] || kill "${SERVER_PID}" >/dev/null 2>&1 || true; }
+cleanup() {
+  [[ -z "${SERVER_PID}" ]] || kill "${SERVER_PID}" >/dev/null 2>&1 || true
+  rm -rf -- "${RUNTIME_DIR}"
+  rm -f -- "/tmp/${SLURM_JOB_ID}-models.json"
+}
 trap cleanup EXIT
 export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/jev"
 export PI_CODING_AGENT_DIR="${RUNTIME_DIR}"
 export HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
 export HF_ENDPOINT="https://hf-mirror.com"
 
-if [[ "${SERVER_KIND}" == "transformers" ]]; then
-  "${KEV_ENV}/bin/transformers" serve "${MODEL_DIR}" \
-    --host 127.0.0.1 --port "${PORT}" --device cuda:0 --dtype bfloat16 \
-    --reasoning off --no-continuous-batching --log-level warning \
-    >"${SERVER_LOG}" 2>&1 &
-else
-  [[ -x "${VLLM_ENV}/bin/vllm" ]] || { echo "ERROR: vLLM is unavailable" >&2; exit 2; }
-  "${VLLM_ENV}/bin/vllm" serve "${MODEL_DIR}" \
-    --served-model-name "${SERVED_NAME}" --host 127.0.0.1 --port "${PORT}" \
-    --dtype bfloat16 --max-model-len 8192 --gpu-memory-utilization 0.85 \
-    >"${SERVER_LOG}" 2>&1 &
-fi
+[[ -x "${VLLM_ENV}/bin/vllm" ]] || { echo "ERROR: vLLM is unavailable" >&2; exit 2; }
+"${VLLM_ENV}/bin/vllm" serve "${MODEL_DIR}" \
+  --served-model-name "${SERVED_NAME}" --host 127.0.0.1 --port "${PORT}" \
+  --dtype bfloat16 --max-model-len 8192 --gpu-memory-utilization 0.85 \
+  >"${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 
 MODEL_ID=""
@@ -137,11 +140,15 @@ JSON
 printf 'job=%s model=%s provider=%s model_id=%s server=%s records=%s data_sha256=%s start=%s\n' \
   "${SLURM_JOB_ID}" "${MODEL_KEY}" "${PROVIDER}" "${MODEL_ID}" "${SERVER_KIND}" \
   "$(wc -l < "${DATA_FILE}")" "$(sha256sum "${DATA_FILE}" | cut -d" " -f1)" "$(date -Is)"
-"${KEV_ENV}/bin/python" -u "${EVAL_SCRIPT}" \
-  --data "${DATA_FILE}" \
-  --output "${OUTPUT_DIR}" \
-  --provider "${PROVIDER}" \
-  --model "${MODEL_ID}" \
-  --workers 4 \
+EVAL_ARGS=(
+  --data "${DATA_FILE}"
+  --output "${OUTPUT_DIR}"
+  --provider "${PROVIDER}"
+  --model "${MODEL_ID}"
+  --thinking off
+  --workers 4
   --timeout 180
+)
+if [[ -n "${LIMIT}" ]]; then EVAL_ARGS+=(--limit "${LIMIT}"); fi
+"${KEV_ENV}/bin/python" -u "${EVAL_SCRIPT}" "${EVAL_ARGS[@]}"
 printf 'job=%s finished=%s output=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${OUTPUT_DIR}"
