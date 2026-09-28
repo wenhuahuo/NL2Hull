@@ -95,6 +95,27 @@ def evaluation_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_report(
+    results: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+    data: Path,
+    model: str,
+) -> dict[str, Any]:
+    action_summary = aggregate_action_results(results)
+    return {
+        "coverage": {
+            "requested_records": len(records),
+            "evaluated_records": action_summary["completed_turns"],
+            "rejected_records": action_summary["failed_turns"],
+        },
+        "ffd_accuracy": action_summary,
+        "failures": [result for result in results if result["status"] != "completed"],
+        "model": model,
+        "data": str(data),
+        "data_sha256": digest(data),
+    }
+
+
 def evaluate_one(record: dict[str, Any], base_url: str, model: str, timeout: int) -> dict[str, Any]:
     result = {
         "task_key": record["task_key"],
@@ -164,24 +185,14 @@ def main() -> None:
                 stream.flush()
 
     results = [json.loads(line) for line in result_path.read_text().splitlines() if line.strip()]
-    action_summary = aggregate_action_results(results)
-    summary = {
-        "record_count": len(records),
-        "completed_records": action_summary["completed_turns"],
-        "failed_records": action_summary["failed_turns"],
-        "turn_exact_rate": action_summary["turn_exact_rate"],
-        "field_accuracy": action_summary["field_accuracy"],
-        "field_correct": action_summary["field_correct"],
-        "field_totals": action_summary["field_totals"],
-        "ffd_accuracy": action_summary,
-        "failures": [r for r in results if r["status"] != "completed"],
-    }
-    (args.output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
+    report = build_report(results, records, args.data, args.model)
+    (args.output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    action_summary = report["ffd_accuracy"]
     manifest.update({"status": "completed", "completed_records": action_summary["completed_turns"],
                      "failed_records": action_summary["failed_turns"],
                      "completed_at": datetime.now(timezone.utc).isoformat()})
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

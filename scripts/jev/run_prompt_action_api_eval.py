@@ -10,9 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from run_prompt_action_eval import digest, parse_json, prompt_for, score
-
-from benchmarks.unified_action import aggregate_action_results
+from run_prompt_action_eval import build_report, digest, parse_json, prompt_for, score
 from nurbs_ship_reconstruction.agents.pi_runner import run_pi_text
 
 
@@ -72,22 +70,13 @@ def main() -> None:
                 stream.flush()
     results = [json.loads(line) for line in result_path.read_text().splitlines() if line.strip()]
     completed = [result for result in results if result["status"] == "completed"]
-    action_summary = aggregate_action_results(results)
-    summary = {
-        "record_count": len(records),
-        "completed_records": action_summary["completed_turns"],
-        "failed_records": action_summary["failed_turns"],
-        "turn_exact_rate": action_summary["turn_exact_rate"],
-        "field_accuracy": action_summary["field_accuracy"],
-        "ffd_accuracy": action_summary,
-        "failures": [result for result in results if result["status"] != "completed"],
-    }
-    (args.output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
+    report = build_report(results, records, args.data, args.model)
+    (args.output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     manifest.update({"status": "completed", "completed_records": len(completed),
                      "failed_records": len(results) - len(completed),
                      "completed_at": datetime.now(timezone.utc).isoformat()})
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
