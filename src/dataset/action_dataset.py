@@ -13,9 +13,9 @@ from typing import Any
 import numpy as np
 import yaml
 
-from ..core.geometry import extract_waterline, load_hull, skin_waterlines
-from ..core.profile import fit_profile
-from ..deformation.ffd import FFDAction, REGION_EXTENTS, apply_ffd_actions
+from nurbs_ship_reconstruction.core.geometry import extract_waterline, load_hull, skin_waterlines
+from nurbs_ship_reconstruction.core.profile import fit_profile
+from nurbs_ship_reconstruction.deformation.ffd import FFDAction, REGION_EXTENTS, apply_ffd_actions
 
 REVISION = "v036_structured_action_dataset_30000"
 SEED = 20260922

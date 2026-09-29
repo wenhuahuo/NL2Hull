@@ -60,7 +60,7 @@ RESUME_ARGS=()
 if [[ -e "${OUTPUT_DIR}" ]]; then
   RESUME_ARGS=(--resume)
 fi
-python -u -m nurbs_ship_reconstruction.language.generate_descriptions \
+python -u -m dataset.generate_descriptions \
   --source outputs/v036_structured_action_dataset_30000 \
   --output "${OUTPUT_DIR}" \
   --workers 7 --progress-every 10 --timeout 180 \

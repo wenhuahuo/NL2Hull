@@ -55,7 +55,7 @@ printf 'job=%s host=%s start=%s project=%s commit=%s\n' \
 python --version
 pi --version
 
-python -u -m nurbs_ship_reconstruction.language.generate_descriptions \
+python -u -m dataset.generate_descriptions \
   --source outputs/v036_structured_action_dataset_30000 \
   --output outputs/v038_stage3_language_150k_smoke_test \
   --smoke-test --smoke-count 7 \

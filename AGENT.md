@@ -78,9 +78,10 @@ Kev 作为船型 FFD 的类型化决策层，负责在候选答案中进行判�
 
 ## 文件存放
 
-- 脚本：`scripts/`；Slurm 任务脚本只放 `scripts/slurm/`
+- 脚本：`scripts/`；Slurm 任务脚本只放 `scripts/slurm/`；评估入口放 `scripts/jev/`
 - 代码：`src/`，按功能分子目录
 - 模型客户端：`src/model_clients/`
+- 数据集处理：`src/dataset/`
 - 可视化代码：`visualization/ffd/`、`visualization/reconstruction/`
 - 数据集、模型权重、运行输出不入库
 

@@ -20,7 +20,7 @@ reconstruct-classic-hulls = "nurbs_ship_reconstruction.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["benchmarks*", "model_clients*", "nurbs_ship_reconstruction*", "visualization*"]
+include = ["benchmarks*", "dataset*", "model_clients*", "nurbs_ship_reconstruction*", "visualization*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

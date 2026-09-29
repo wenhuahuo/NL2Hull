@@ -84,7 +84,7 @@ PY
 # Copy the pre-submit stage-three snapshot into this run for immutable provenance.
 cp "${SOURCE_SNAPSHOT}/language_samples.jsonl" "${INPUT_SNAPSHOT}/language_samples.jsonl"
 cp "${SOURCE_SNAPSHOT}/run_manifest.json" "${INPUT_SNAPSHOT}/run_manifest.json"
-python "${PROJECT_DIR}/scripts/jev/prepare_kev_ship_data.py" \
+python -m dataset.prepare_kev_ship_data \
   --samples "${INPUT_SNAPSHOT}/language_samples.jsonl" \
   --structured "${PROJECT_DIR}/outputs/v036_structured_action_dataset_30000/structured_actions.jsonl" \
   --output "${DATA_DIR}"

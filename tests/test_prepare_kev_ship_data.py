@@ -1,15 +1,6 @@
-from importlib.util import module_from_spec, spec_from_file_location
-from pathlib import Path
-
 import pytest
 
-_spec = spec_from_file_location(
-    "prepare_kev_ship_data", Path(__file__).parents[1] / "scripts/jev/prepare_kev_ship_data.py"
-)
-_prepare = module_from_spec(_spec)
-assert _spec.loader is not None
-_spec.loader.exec_module(_prepare)
-_validated_splits = _prepare._validated_splits
+from dataset.prepare_kev_ship_data import _validated_splits
 
 
 def _source():
