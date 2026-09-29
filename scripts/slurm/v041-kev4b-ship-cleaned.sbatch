@@ -69,7 +69,7 @@ CODE_COMMIT="unknown"
 if git -C "${PROJECT_DIR}" rev-parse HEAD >/dev/null 2>&1; then
   CODE_COMMIT="$(git -C "${PROJECT_DIR}" rev-parse HEAD)"
 fi
-KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
+KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/evaluate/v039-kev-source-revision.txt")"
 SCRIPT_SHA256="$(sha256sum "${TRAIN_SCRIPT}" | awk '{print $1}')"
 DATASET_MANIFEST_SHA256="$(sha256sum "${DATASET_DIR}/manifest.json" | awk '{print $1}')"
 DATASET_FILES_SHA256="$(sha256sum "${DATASET_DIR}/train.jsonl" "${DATASET_DIR}/validation.jsonl" "${DATASET_DIR}/test.jsonl" | sha256sum | awk '{print $1}')"
@@ -148,11 +148,11 @@ for split in validation test; do
     --out "${RUN_ROOT}/trained_${split}"
 done
 
-python "${PROJECT_DIR}/scripts/jev/compare_kev_reports.py" \
+python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
   --baseline "${RUN_ROOT}/baseline_test/report.json" \
   --trained "${RUN_ROOT}/trained_test/report.json" \
   --output "${RUN_ROOT}/test_comparison.json"
-python "${PROJECT_DIR}/scripts/jev/compare_kev_reports.py" \
+python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
   --baseline "${RUN_ROOT}/baseline_validation/report.json" \
   --trained "${RUN_ROOT}/trained_validation/report.json" \
   --output "${RUN_ROOT}/validation_comparison.json"

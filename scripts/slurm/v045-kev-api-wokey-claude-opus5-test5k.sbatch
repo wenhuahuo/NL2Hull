@@ -18,7 +18,7 @@ KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_api_pi_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_kev_api_pi_eval.py"
 OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_kev_api_wokey_claude_opus5_test_5k"
 MODEL="claude-opus-5"
 PROVIDER="wokey"
@@ -96,7 +96,7 @@ cat > "${RUNTIME_DIR}/models.json" <<'JSON'
 }
 JSON
 export PI_CODING_AGENT_DIR="${RUNTIME_DIR}"
-export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/jev:${KEV_SOURCE}"
+export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/evaluate:${KEV_SOURCE}"
 printf 'job=%s host=%s model=%s provider=%s thinking=%s records=%s data_sha256=%s start=%s\n' \
   "${SLURM_JOB_ID}" "$(hostname)" "${MODEL}" "${PROVIDER}" "${THINKING}" \
   "$(wc -l < "${DATA_FILE}")" "$(sha256sum "${DATA_FILE}" | cut -d' ' -f1)" "$(date -Is)"

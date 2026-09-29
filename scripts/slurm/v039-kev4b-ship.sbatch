@@ -63,7 +63,7 @@ source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
 export HF_HOME
 export HF_HUB_OFFLINE=1
-KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
+KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/evaluate/v039-kev-source-revision.txt")"
 CODE_COMMIT="$(cat "${PROJECT_DIR}/scripts/slurm/v039-code-revision.txt")"
 mkdir -p logs/apps
 mkdir -p "${RUN_ROOT}" "${INPUT_SNAPSHOT}"
@@ -145,11 +145,11 @@ for split in validation test; do
     --out "${RUN_ROOT}/trained_${split}"
 done
 
-python "${PROJECT_DIR}/scripts/jev/compare_kev_reports.py" \
+python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
   --baseline "${RUN_ROOT}/baseline_test/report.json" \
   --trained "${RUN_ROOT}/trained_test/report.json" \
   --output "${RUN_ROOT}/test_comparison.json"
-python "${PROJECT_DIR}/scripts/jev/compare_kev_reports.py" \
+python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
   --baseline "${RUN_ROOT}/baseline_validation/report.json" \
   --trained "${RUN_ROOT}/trained_validation/report.json" \
   --output "${RUN_ROOT}/validation_comparison.json"

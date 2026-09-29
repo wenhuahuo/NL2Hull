@@ -62,7 +62,7 @@ CODE_COMMIT="unknown"
 if git -C "${PROJECT_DIR}" rev-parse HEAD >/dev/null 2>&1; then
   CODE_COMMIT="$(git -C "${PROJECT_DIR}" rev-parse HEAD)"
 fi
-KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/jev/v039-kev-source-revision.txt")"
+KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/evaluate/v039-kev-source-revision.txt")"
 SCRIPT_SHA256="$(sha256sum "${TRAIN_SCRIPT}" | awk '{print $1}')"
 ORIGIN_MANIFEST_SHA256="$(sha256sum "${ORIGIN_DIR}/manifest.json" | awk '{print $1}')"
 SHIP_MANIFEST_SHA256="$(sha256sum "${DATASET_DIR}/manifest.json" | awk '{print $1}')"

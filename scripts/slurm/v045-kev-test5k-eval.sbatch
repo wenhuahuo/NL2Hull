@@ -19,7 +19,7 @@ KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_local_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_kev_local_eval.py"
 
 case "${MODEL_KEY}" in
   kev08)

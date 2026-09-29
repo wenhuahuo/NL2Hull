@@ -20,7 +20,7 @@ KEV_ENV="${HOME}/.conda/envs/kev-v039"
 VLLM_ENV="${HOME}/.conda/envs/vllm-qwen3"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/jev/run_kev_api_pi_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_kev_api_pi_eval.py"
 REVISION=v045
 
 case "${MODEL_KEY}" in
@@ -79,7 +79,7 @@ cleanup() {
   rm -f -- "/tmp/${SLURM_JOB_ID}-models.json"
 }
 trap cleanup EXIT
-export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/jev:${KEV_SOURCE}"
+export PYTHONPATH="${PROJECT_DIR}/src:${PROJECT_DIR}/scripts/evaluate:${KEV_SOURCE}"
 export PI_CODING_AGENT_DIR="${RUNTIME_DIR}"
 export HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
 export HF_HUB_OFFLINE=1
