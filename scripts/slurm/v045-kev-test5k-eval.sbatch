@@ -13,7 +13,7 @@
 #SBATCH --error=logs/slurm/%x-%j.err
 
 set -euo pipefail
-MODEL_KEY="${1:?model key required: kev08 or kev2b}"
+MODEL_KEY="${1:?model key required: kev08, kev2b, or kev4b}"
 PROJECT_DIR=/data/home/wenhua_huo/Documents/NurbsShipGen
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
@@ -29,6 +29,10 @@ case "${MODEL_KEY}" in
   kev2b)
     RUN_DIR="${PROJECT_DIR}/outputs/v042_kev2b_ship"
     OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_kev2b_test5k_eval"
+    ;;
+  kev4b)
+    RUN_DIR="${PROJECT_DIR}/outputs/v041_kev4b_ship_cleaned/checkpoint"
+    OUTPUT_DIR="${PROJECT_DIR}/outputs/v045_kev4b_test5k_eval"
     ;;
   *) echo "ERROR: unknown model key ${MODEL_KEY}" >&2; exit 2 ;;
 esac
