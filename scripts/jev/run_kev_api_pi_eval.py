@@ -12,7 +12,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from nurbs_ship_reconstruction.agents.pi_runner import run_pi_text
+from model_clients.pi_runner import run_pi_text
 
 
 def render(value: Any, indent: int = 0) -> str:

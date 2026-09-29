@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 
-from ..core.geometry import HullInput, Waterline, evaluate_waterline
-from ..core.profile import (
+from nurbs_ship_reconstruction.core.geometry import HullInput, Waterline, evaluate_waterline
+from nurbs_ship_reconstruction.core.profile import (
     ProfileFit,
     evaluate_profile_parameters,
     profile_parameter_vector,

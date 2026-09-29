@@ -13,7 +13,7 @@ import random
 import time
 from typing import Any, Iterable
 
-from ..agents.pi_runner import DEFAULT_THINKING, run_pi_text
+from model_clients.pi_runner import DEFAULT_THINKING, run_pi_text
 
 REVISION = "v038_stage3_language_150k"
 SMOKE_REVISION = f"{REVISION}_smoke_test"

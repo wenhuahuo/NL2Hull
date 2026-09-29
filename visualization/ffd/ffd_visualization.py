@@ -10,10 +10,10 @@ from pathlib import Path
 
 import numpy as np
 
-from ..core.geometry import extract_waterline, load_hull, skin_waterlines
-from ..core.profile import fit_profile
-from ..deformation.ffd import FFDAction, apply_ffd_actions
-from .plotting import plot_ffd_comparison, plot_ffd_gallery
+from nurbs_ship_reconstruction.core.geometry import extract_waterline, load_hull, skin_waterlines
+from nurbs_ship_reconstruction.core.profile import fit_profile
+from nurbs_ship_reconstruction.deformation.ffd import FFDAction, apply_ffd_actions
+from visualization.reconstruction.plotting import plot_ffd_comparison, plot_ffd_gallery
 
 REVISION = "v021_ffd_action_visualization"
 

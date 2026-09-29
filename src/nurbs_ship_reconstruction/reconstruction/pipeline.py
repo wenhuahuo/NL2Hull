@@ -17,7 +17,7 @@ from ..core.geometry import (
     skin_waterlines,
     waterline_record,
 )
-from ..visualization.plotting import plot_comparison, plot_profile, plot_summary
+from visualization.reconstruction.plotting import plot_comparison, plot_profile, plot_summary
 from ..core.profile import fit_profile, profile_record
 
 REVISION = "v020_watertight_loft"
