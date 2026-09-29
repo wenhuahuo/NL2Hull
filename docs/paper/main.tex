@@ -1,0 +1,366 @@
+% Natural Language-Driven Constrained Ship Design Decision Framework
+% Ocean Engineering manuscript outline based on the Elsevier CAS double-column template.
+% Evidence placeholders are intentionally retained where the current project record does
+% not yet contain the corresponding experiment.
+
+\documentclass[a4paper,fleqn]{cas-dc}
+
+\usepackage[authoryear,longnamesfirst]{natbib}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\evidence}[1]{\textcolor{blue}{[Evidence needed: #1]}}
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+
+\shorttitle{Natural-language-driven constrained ship design}
+\shortauthors{Author et~al.}
+
+\title [mode = title]{Natural Language-Driven Constrained Ship Design Decision Framework}
+
+% Replace author and affiliation placeholders before submission.
+\author[1]{Author Name}
+\cormark[1]
+\ead{author@example.com}
+\affiliation[1]{organization={Institution Name},
+                addressline={Address},
+                city={City},
+                postcode={Postcode},
+                country={Country}}
+\cortext[1]{Corresponding author}
+
+\begin{abstract}
+\todo{Write the structured problem--method--evidence--implication abstract after the
+main results and end-to-end evaluation are complete.}
+\end{abstract}
+
+\begin{highlights}
+\item \todo{State the NURBS-based constrained ship FFD decision problem.}
+\item \todo{State the typed natural-language decision framework and action decoder.}
+\item \todo{Report the strongest benchmark and geometric validation evidence.}
+\end{highlights}
+
+\begin{keywords}
+NURBS \sep free-form deformation \sep ship design \sep natural language decision \sep constrained geometric editing
+\end{keywords}
+
+\maketitle
+
+% -----------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:introduction}
+
+Ship-form design requires repeated geometric adjustments under coupled geometric
+and engineering constraints. Designers must modify local regions such as the bow,
+stern, bulb, deck, or bilge while preserving a valid hull representation and, when
+required, global properties such as symmetry, displacement, or the deck line.
+NURBS curves provide a compact representation for smooth ship-form geometry, and
+free-form deformation (FFD) provides a mechanism for applying localized or global
+changes. The remaining design difficulty is to express these geometric operations
+as reliable, interpretable decisions that can be selected from natural-language
+intent.
+
+Natural-language interfaces are attractive for iterative ship design because a
+designer can describe a target change without manually editing control points.
+However, unconstrained text generation does not directly guarantee a valid FFD
+action: the output must identify a compatible region and operation, select the
+number of actions, preserve the semantics of a multi-step interaction, and satisfy
+the geometric constraints imposed by the hull representation. This creates a
+decision problem at the interface between language understanding and geometric
+execution. A model that produces fluent text but selects an invalid action can
+still generate an unusable design operation.
+
+This paper formulates that interface as a constrained decision problem for NURBS-
+based ship-form FFD. Given a hull state and a natural-language design intent, the
+framework represents the candidate operation through typed decisions over action
+count, region, operation, and related attributes. A decision model predicts a
+probability distribution for each typed question. The maximum-probability answers
+are projected into a canonical FFD action representation and passed to a geometric
+decoder. The decoder updates NURBS control parameters, reconstructs the hull, and
+checks the resulting geometry. This separation keeps language-level decision making
+and numerical geometry execution explicit and independently testable.
+
+The study makes the following contributions:
+\begin{enumerate}
+    \item It defines a NURBS-based ship-form FFD decision problem in which ship
+    editing intent is mapped to typed, engineering-interpretable deformation actions.
+    \item It develops a natural-language-driven decision framework that combines
+    typed probability prediction, action projection, sequential editing, and
+    constraint-aware geometric execution.
+    \item It constructs a ship design decision dataset and a frozen benchmark with a
+    common probability protocol, question-level metrics, calibration metrics, and
+    a shared action-level FFD score.
+    \item It compares specialized decision models, the native JEV decision model,
+    and general language models under the same benchmark protocol. The current
+    benchmark results provide the comparison in Section~\ref{sec:benchmark};
+    geometric end-to-end and ablation claims remain subject to the experiments
+    marked in Sections~\ref{sec:end-to-end} and~\ref{sec:ablations}.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{Methods}
+\label{sec:methods}
+
+This section defines the geometric representation, the decision interface, and the
+dataset and evaluation protocol. The central design choice is to use the model as a
+typed decision layer rather than asking it to emit unrestricted NURBS control-point
+coordinates.
+
+\subsection{NURBS-Based Ship Representation and FFD}
+\label{sec:nurbs-ffd}
+
+\paragraph{Ship-form representation.}
+Describe the normalized ship coordinate system, the extracted waterlines, the
+cubic clamped NURBS representation, the number and arrangement of control points,
+and the separate stem/stern profile representation. Define the reconstructed hull
+surface and the geometric quantities used for validation.
+
+\begin{equation}
+    \mathbf{C}(u) =
+    \frac{\sum_{i=0}^{n} N_{i,p}(u) w_i \mathbf{P}_i}
+         {\sum_{i=0}^{n} N_{i,p}(u) w_i},
+    \qquad u\in[0,1],
+\end{equation}
+where $\mathbf{P}_i$, $w_i$, $N_{i,p}$, and $p$ denote the control points, weights,
+B-spline basis functions, and spline degree, respectively. The current
+implementation uses degree-3 clamped NURBS waterlines with eight controls and a
+normalized longitudinal and vertical coordinate system.
+
+\paragraph{Typed FFD action.}
+Define an action as
+\[
+ a = (r,o,m,\ell_x,\ell_z,s,\mathcal{C}),
+\]
+where $r$ is the hull region, $o$ is the operation, $m$ is a discrete magnitude
+level or an explicit magnitude, $\ell_x$ and $\ell_z$ are optional normalized
+longitudinal and vertical extents, $s$ is the symmetry flag, and $\mathcal{C}$ is
+the constraint set. Regions include the bow, stern, bulb, midbody, deck, bilge,
+and global hull. Operations include directional, fullness, flare, bulb-length, and
+global length or breadth changes.
+
+\paragraph{Control-point update and validation.}
+Explain how a normalized smooth mask selects control points within the action
+extent, how the selected controls are displaced, and how longitudinal ordering,
+non-negative half-breadth, watertightness, volume, and other constraints are
+checked after reconstruction. State the current scope explicitly: the shared
+benchmark evaluates region and operation decisions; magnitude, extent, and other
+extended fields require separate evidence where claimed.
+
+\evidence{NURBS fitting RMSE/max error, reconstruction error, watertightness, and
+constraint-validation results for the final hull set.}
+
+\subsection{Decision Framework for Natural-Language-Driven Ship Design}
+\label{sec:decision-framework}
+
+\paragraph{Problem interface.}
+Define the input as a current hull state together with a natural-language design
+intent, and the output as one or more typed deformation actions. Explain how the
+intent is represented in the benchmark request and how the state is updated after
+sequential turns.
+
+\paragraph{Typed decision layer.}
+Describe the three question families used by the framework: \textit{choice} for
+categorical selections, \textit{score} for ordinal levels, and \textit{noul} for
+Boolean constraints. For a record with questions $q_1,\ldots,q_K$, the model
+outputs distributions
+\[
+ p(y_k\mid s,q_k), \qquad k=1,\ldots,K,
+\]
+where $s$ is the current state. Explain that the benchmark retains the complete
+probability distributions for accuracy, negative log-likelihood, expected
+calibration error, and Brier score.
+
+\paragraph{Action projection and execution.}
+The argmax answer for each typed question is projected into the canonical action
+format
+\begin{verbatim}
+{"actions":[{"region":"bow","operation":"outward"}]}
+\end{verbatim}
+The projected actions are then passed to the NURBS/FFD executor. Invalid
+probabilities, missing answers, incompatible action counts, failed calls, and
+invalid action projections are recorded as failures and included in the relevant
+denominators. This section should include a framework diagram showing the flow
+from natural-language intent to typed decisions, action projection, NURBS update,
+and geometric validation.
+
+\subsection{Ship Design Decision Dataset and Benchmark}
+\label{sec:dataset-benchmark}
+
+\paragraph{Dataset construction.}
+Describe the programmatic generation of hull states and FFD actions, including
+single-action edits, multi-region edits, repeated same-region turns, explicit-range
+edits, natural-language paraphrases, and constraint annotations. State the split
+policy by hull family and the frozen test-set identifier and checksum.
+
+\paragraph{Benchmark protocol.}
+All compared models use the same frozen $5{,}000$-record test set, typed questions,
+probability JSON format, probability validation, and metric aggregation. The
+frozen set contains 43,496 expanded questions. Report question-level clean
+accuracy, negative log-likelihood, expected calibration error, and Brier score;
+report FFD action exact-match accuracy separately. Define the turn-level denominator
+as the number of requested records, including failed or invalid records.
+
+\paragraph{Compared systems and reproducibility.}
+List the Kev-0.8B, Kev-2B, Kev-4B, native JEV, DeepSeek-Flash, Claude Opus 5,
+GPT-5.6 Sol, Qwen3, Gemma3, and Llama3.2 systems. State model identifiers,
+provider or local-serving mode, decoding/thinking setting, checkpoint information
+for local specialized models, and code/data revisions in the final manuscript.
+
+% -----------------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\subsection{NURBS Representation and FFD Accuracy}
+\label{sec:nurbs-results}
+
+\paragraph{Claim to test.}
+The NURBS representation should reconstruct valid ship forms with sufficiently low
+geometric error, while the FFD executor should produce valid deformations under the
+specified action and constraint conditions.
+
+\paragraph{Planned evidence.}
+Report fitting and reconstruction errors, watertightness and volume validity, and
+representative before/after hull visualizations. Include a table separating
+representation error from post-FFD validity so that geometric fidelity is not
+confounded with decision accuracy.
+
+\evidence{Final quantitative reconstruction and FFD execution results.}
+
+\subsection{Ship Design Decision Benchmark Evaluation}
+\label{sec:benchmark}
+
+\paragraph{Claim supported by current results.}
+Under the shared frozen benchmark, specialized Kev models and several language
+models can be compared directly through the same question-level probability metrics;
+FFD action exact-match is reported as a separate projection metric.
+
+\begin{table*}[t]
+\caption{Outline of the shared frozen test-set comparison. Values currently
+available from the local reports are shown; negative log-likelihood, expected
+calibration error, and Brier score should be added from the final report extraction.}
+\label{tab:benchmark-outline}
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Model & Clean accuracy & NLL & ECE & FFD exact match \\
+\midrule
+Kev-0.8B       & 95.90\% & \todo{add} & \todo{add} & 99.32\% \\
+Kev-2B         & 95.92\% & \todo{add} & \todo{add} & 99.30\% \\
+Kev-4B         & 95.88\% & \todo{add} & \todo{add} & 99.24\% \\
+JEV            & 90.96\% & \todo{add} & \todo{add} & 84.52\% \\
+DeepSeek-Flash & 92.84\% & \todo{add} & \todo{add} & 98.40\% \\
+Claude Opus 5  & 92.87\% & \todo{add} & \todo{add} & 99.12\% \\
+GPT-5.6 Sol    & 92.44\% & \todo{add} & \todo{add} & 98.32\% \\
+Qwen3          & 75.61\% & \todo{add} & \todo{add} & 2.84\% \\
+Gemma3         & 66.97\% & \todo{add} & \todo{add} & 15.98\% \\
+Llama3.2       & 63.94\% & \todo{add} & \todo{add} & 2.16\% \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Discuss coverage and failure rates alongside accuracy. The table must distinguish
+question-level clean accuracy from turn-level FFD exact match; these metrics have
+different statistical objects and must not be merged into one ranking.
+
+\subsection{End-to-End Ship Form Editing Evaluation}
+\label{sec:end-to-end}
+
+\paragraph{Claim to test.}
+A correct typed decision should produce a valid and interpretable geometric edit
+when decoded by the NURBS/FFD executor.
+
+\paragraph{Planned protocol.}
+Evaluate complete natural-language instruction to edited-hull trajectories,
+including single-turn, multi-region, repeated-turn, and reversal cases. Report
+instruction success, geometric validity, constraint satisfaction, displacement or
+principal-dimension changes, and human or expert agreement where available.
+
+\evidence{End-to-end execution runs, geometric metrics, representative hull
+figures, and the definition of the final acceptance criteria.}
+
+\subsection{Ablation Studies}
+\label{sec:ablations}
+
+Each ablation should use the same frozen split and failure denominator as the main
+benchmark. The reported change should be tied to one design choice at a time.
+
+\subsubsection{Sensitivity to NURBS Representation}
+\label{sec:ablation-nurbs}
+Compare control-point count, spline degree, waterline sampling, and representation
+variants while keeping the decision protocol fixed. Report both reconstruction
+quality and downstream action-to-geometry validity.
+
+\evidence{Representation variants and their measured effect.}
+
+\subsubsection{Effect of Kev Model Scale}
+\label{sec:ablation-scale}
+Compare Kev-0.8B, Kev-2B, and Kev-4B under identical data, prompts, evaluation
+code, and test records. Report clean accuracy, calibration, FFD exact match,
+coverage, and latency.
+
+\evidence{Final scale-comparison analysis, including uncertainty or repeated-run
+statistics if available.}
+
+\subsubsection{Effect of Training Data Size}
+\label{sec:ablation-data}
+Evaluate checkpoints trained with controlled fractions of the training data. Keep
+architecture and optimization settings fixed, and plot performance against the
+number of training examples.
+
+\evidence{Controlled data-size checkpoints and a reproducible training-data
+schedule.}
+
+\subsubsection{Generalization and Robustness}
+\label{sec:ablation-robustness}
+Test unseen hull families, paraphrased instructions, multi-step edits, constraint
+variants, and malformed or ambiguous requests. Report both successful decisions
+and failure categories rather than aggregating all failures into a single number.
+
+\evidence{Held-out hull-family, paraphrase, multi-step, and stress-test results.}
+
+% -----------------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Why LLMs Fail in Ship FFD Decision Making}
+\label{sec:llm-failures}
+Interpret failure categories revealed by the benchmark, including action-count
+errors, region/operation confusions, invalid probability structures, unsupported
+multi-action projections, and failures to preserve the typed semantics of the
+request. Connect each explanation to error statistics or qualitative examples.
+
+\subsection{Specialized Model Scale and Data Efficiency}
+\label{sec:scale-efficiency}
+Discuss the relationship between model scale, training data, calibration, and
+action-level reliability. Separate observations directly supported by the scale
+comparison from hypotheses about why specialized decision training helps.
+
+% -----------------------------------------------------------------------------
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+Summarize the bounded contribution: a NURBS-based constrained ship FFD decision
+problem and a natural-language-driven typed decision framework that can be
+assessed with a common probability and action protocol. State the strongest
+validated benchmark evidence, then identify the current boundary: the shared
+benchmark primarily evaluates typed decisions and their action projection, while
+full continuous parameter control, hydrodynamic objectives, and validated
+end-to-end design optimization require further experiments.
+
+Future work should address explicit continuous magnitudes and spatial extents,
+stronger constraint and hydrodynamic coupling, expert-reviewed multi-turn design
+trajectories, unseen-hull generalization, and calibrated human-in-the-loop
+acceptance or rollback.
+
+% -----------------------------------------------------------------------------
+% Add references after the literature review has been completed.
+% \bibliographystyle{cas-model2-names}
+% \bibliography{references}
+
+\end{document}
