@@ -63,7 +63,7 @@ source "${KEV_ENV}/bin/activate"
 export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
 export HF_HOME
 export HF_HUB_OFFLINE=1
-KEV_COMMIT="$(cat "${PROJECT_DIR}/scripts/evaluate/v039-kev-source-revision.txt")"
+KEV_COMMIT="$(git -C "${KEV_SOURCE}" rev-parse HEAD)"
 CODE_COMMIT="$(cat "${PROJECT_DIR}/scripts/slurm/v039-code-revision.txt")"
 mkdir -p logs/apps
 mkdir -p "${RUN_ROOT}" "${INPUT_SNAPSHOT}"

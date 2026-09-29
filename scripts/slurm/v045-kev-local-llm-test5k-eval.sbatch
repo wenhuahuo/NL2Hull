@@ -20,7 +20,7 @@ KEV_ENV="${HOME}/.conda/envs/kev-v039"
 VLLM_ENV="${HOME}/.conda/envs/vllm-qwen3"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_kev_api_pi_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_llm_eval.py"
 REVISION=v045
 
 case "${MODEL_KEY}" in

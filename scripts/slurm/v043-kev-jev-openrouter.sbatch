@@ -18,7 +18,7 @@ PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k.jsonl"
 DATA_MANIFEST="${PROJECT_DIR}/datasets/kev_ship_dataset/test_5k_manifest.json"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
-EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_kev_jev_eval.py"
+EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_jev_eval.py"
 case "${MODE}" in
   smoke) LIMIT=2; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_smoke_v2" ;;
   full) LIMIT=5000; OUTPUT_DIR="${PROJECT_DIR}/outputs/v043_kev_jev_openrouter_test_5k_v2" ;;
