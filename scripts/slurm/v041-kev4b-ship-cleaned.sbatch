@@ -148,13 +148,4 @@ for split in validation test; do
     --out "${RUN_ROOT}/trained_${split}"
 done
 
-python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
-  --baseline "${RUN_ROOT}/baseline_test/report.json" \
-  --trained "${RUN_ROOT}/trained_test/report.json" \
-  --output "${RUN_ROOT}/test_comparison.json"
-python "${PROJECT_DIR}/scripts/evaluate/compare_kev_reports.py" \
-  --baseline "${RUN_ROOT}/baseline_validation/report.json" \
-  --trained "${RUN_ROOT}/trained_validation/report.json" \
-  --output "${RUN_ROOT}/validation_comparison.json"
-
 printf 'job=%s finished=%s run_root=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${RUN_ROOT}"
