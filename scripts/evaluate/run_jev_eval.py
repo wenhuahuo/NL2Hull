@@ -82,7 +82,7 @@ def main() -> None:
     manifest = {
         "revision": args.output.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "data": str(args.data), "data_sha256": digest(args.data), "record_count": len(records),
+        "data": str(args.data), "record_count": len(records),
         "model": JEV_MODEL, "endpoint": JEV_URL,
         "protocol": "native OpenRouter Jev; same labelled requests and Kev benchmark metrics",
         "status": "running",

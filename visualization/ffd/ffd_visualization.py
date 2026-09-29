@@ -15,8 +15,6 @@ from nurbs_ship_reconstruction.core.profile import fit_profile
 from nurbs_ship_reconstruction.deformation.ffd import FFDAction, apply_ffd_actions
 from visualization.reconstruction.plotting import plot_ffd_comparison, plot_ffd_gallery
 
-REVISION = "v021_ffd_action_visualization"
-
 
 def ffd_visualization_cases() -> list[tuple[str, str, FFDAction]]:
     """Return local, global, and shape actions used by the visual audit."""
@@ -125,7 +123,6 @@ def run_ffd_visualization(
         "revision": output_dir.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "input_stl": str(hull.stl_path),
-        "input_sha256": hull.source_sha256,
         "hull_id": hull_id,
         "level_count": level_count,
         "samples_per_half_waterline": samples,
@@ -209,17 +206,9 @@ def run_ffd_visualization(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--dataset",
-        type=Path,
-        default=Path("datasets/classic_hulls"),
-    )
-    parser.add_argument("--hull", default="KVLCC2")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("outputs") / REVISION,
-    )
+    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--hull", required=True)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--levels", type=int, default=33)
     parser.add_argument("--samples", type=int, default=96)
     args = parser.parse_args()

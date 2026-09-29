@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -55,10 +54,6 @@ ROLLBACK_CATEGORIES_WITH_INVALID_LABELS = {
     "change_back_previous_plan",
     "multi_action_combination_rollback",
 }
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _question(action: dict[str, Any], index: int) -> dict[str, Any]:
@@ -248,9 +243,7 @@ def main() -> None:
     manifest = {
         "revision": output.name,
         "samples": str(args.samples),
-        "samples_sha256": _digest(args.samples),
         "structured": str(args.structured),
-        "structured_sha256": _digest(args.structured),
         "input_count": len(samples),
         "record_count": sum(map(len, split_records.values())),
         "excluded_counts": dict(excluded),

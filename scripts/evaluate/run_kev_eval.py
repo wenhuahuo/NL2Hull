@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,10 +14,6 @@ from benchmarks.unified_action import (
     score_actions,
     target_actions_from_kev,
 )
-
-
-def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main() -> None:
@@ -46,7 +41,6 @@ def main() -> None:
         "revision": args.output.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "data": str(args.data),
-        "data_sha256": digest(args.data),
         "run": args.run,
         "record_count": len(records),
         "protocol": "Kev LocalPredictor; shared projected FFD action metrics",

@@ -189,7 +189,6 @@ def main() -> None:
         "revision": args.output.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "data": str(args.data),
-        "data_sha256": digest(args.data),
         "model": args.model,
         "provider": args.provider,
         "thinking": args.thinking,

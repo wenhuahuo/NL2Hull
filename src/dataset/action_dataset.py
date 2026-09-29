@@ -17,7 +17,6 @@ from nurbs_ship_reconstruction.core.geometry import extract_waterline, load_hull
 from nurbs_ship_reconstruction.core.profile import fit_profile
 from nurbs_ship_reconstruction.deformation.ffd import FFDAction, REGION_EXTENTS, apply_ffd_actions
 
-REVISION = "v036_structured_action_dataset_30000"
 SEED = 20260922
 LEVEL_COUNT = 17
 SAMPLES_PER_WATERLINE = 48
@@ -432,12 +431,8 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, default=Path("datasets/classic_hulls"))
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("outputs") / REVISION,
-    )
+    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--samples", type=int, default=SAMPLE_COUNT)
     parser.add_argument("--mirror-output", type=Path)

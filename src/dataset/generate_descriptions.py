@@ -15,9 +15,6 @@ from typing import Any, Iterable
 
 from model_clients.pi_runner import DEFAULT_THINKING, run_pi_text
 
-REVISION = "v038_stage3_language_150k"
-SMOKE_REVISION = f"{REVISION}_smoke_test"
-SOURCE_DATASET = "outputs/v036_structured_action_dataset_30000"
 DESCRIPTIONS_PER_TURN = 4
 DEFAULT_TIMEOUT = 180
 DEFAULT_WORKERS = 7
@@ -49,14 +46,6 @@ BACKGROUND_SCENARIOS = (
 
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2)
-
-
-def _source_digest(records: list[dict[str, Any]]) -> str:
-    payload = "".join(
-        json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        for record in records
-    )
-    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _task_key(sample_id: str, turn_id: int, variant_index: int) -> str:
@@ -313,7 +302,6 @@ def _base_manifest(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_dataset": str(source_dir),
         "source_records": str(source_path),
-        "source_sha256": _source_digest(records),
         "source_record_count": len(records),
         "source_turn_count": turn_count,
         "description_count_target": turn_count * variants_per_turn,
@@ -459,7 +447,7 @@ def _run_generation(
             raise FileNotFoundError("resume requires an existing output and manifest")
         manifest = json.loads(manifest_path.read_text())
         expected = {
-            "source_sha256": _source_digest(records),
+            "source_dataset": str(source_dir),
             "description_count_target": task_count,
             "models": list(MODELS),
             "variants_per_turn": variants_per_turn,
@@ -625,8 +613,8 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=Path(SOURCE_DATASET))
-    parser.add_argument("--output", type=Path, default=Path("outputs") / REVISION)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     parser.add_argument("--progress-every", type=int, default=DEFAULT_PROGRESS_EVERY)
@@ -634,12 +622,9 @@ def main() -> None:
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--smoke-count", type=int, default=7)
     args = parser.parse_args()
-    output = args.output
-    if args.smoke_test and output.name == REVISION:
-        output = output.with_name(SMOKE_REVISION)
     result = _run_generation(
         args.source,
-        output,
+        args.output,
         timeout=args.timeout,
         workers=args.workers,
         progress_every=args.progress_every,

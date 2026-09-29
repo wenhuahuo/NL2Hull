@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .reconstruction.pipeline import REVISION, run_benchmark
+from .reconstruction.pipeline import run_benchmark
 
 
 def main() -> None:
@@ -13,13 +13,13 @@ def main() -> None:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=Path("datasets/classic_hulls"),
+        required=True,
         help="classic hull dataset directory",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("outputs") / REVISION,
+        required=True,
         help="new output directory; existing evidence is never overwritten",
     )
     parser.add_argument("--hull", action="append", help="run one hull; repeat for several")

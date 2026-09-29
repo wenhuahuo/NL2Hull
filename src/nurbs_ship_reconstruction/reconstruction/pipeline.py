@@ -20,8 +20,6 @@ from ..core.geometry import (
 from visualization.reconstruction.plotting import plot_comparison, plot_profile, plot_summary
 from ..core.profile import fit_profile, profile_record
 
-REVISION = "v020_watertight_loft"
-
 
 def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
