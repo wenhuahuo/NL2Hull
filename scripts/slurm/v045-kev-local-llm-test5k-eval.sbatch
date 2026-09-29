@@ -41,7 +41,7 @@ esac
 
 OUTPUT_DIR="${PROJECT_DIR}/outputs/${REVISION}_kev_local_${MODEL_KEY}_test5k_eval"
 PROVIDER="${MODEL_KEY}-local"
-PORT=8000
+PORT=$((18000 + SLURM_JOB_ID % 10000))
 BASE_URL="http://127.0.0.1:${PORT}/v1"
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
@@ -96,6 +96,10 @@ MODEL_ID=""
 for _ in $(seq 1 180); do
   if curl -sf "${BASE_URL}/models" >"/tmp/${SLURM_JOB_ID}-models.json"; then
     MODEL_ID="$(${KEV_ENV}/bin/python -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"][0]["id"])' "/tmp/${SLURM_JOB_ID}-models.json")"
+    [[ "${MODEL_ID}" == "${SERVED_NAME}" ]] || {
+      echo "ERROR: model server returned ${MODEL_ID}, expected ${SERVED_NAME}" >&2
+      exit 1
+    }
     break
   fi
   if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
