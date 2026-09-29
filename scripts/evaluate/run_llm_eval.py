@@ -12,6 +12,12 @@ from pathlib import Path
 import time
 from typing import Any
 
+from benchmarks.unified_action import (
+    actions_from_kev,
+    aggregate_action_results,
+    score_actions,
+    target_actions_from_kev,
+)
 from model_clients.pi_runner import run_pi_text
 
 
@@ -146,17 +152,24 @@ def probabilities(record: dict[str, Any], parsed: dict[str, Any]) -> dict[str, d
 
 def evaluate_one(record: dict[str, Any], model: str, provider: str | None, thinking: str, timeout: int, retries: int) -> dict[str, Any]:
     start = time.perf_counter()
-    result = {"id": record["_meta"]["task_key"], "record": record}
+    target_actions = target_actions_from_kev(record)
+    result = {"id": record["_meta"]["task_key"], "record": record, "target_actions": target_actions}
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
             raw = run_pi_text(prompt_for(record), model=model, provider=provider, thinking=thinking, timeout=timeout)
             parsed = parse_json(raw)
             probs = probabilities(record, parsed)
-            result.update({"status": "completed", "raw_response": raw,
-                           "prediction": {"probabilities": probs},
-                           "latency_ms": 1000 * (time.perf_counter() - start),
-                           "attempts": attempt + 1})
+            action_prediction = actions_from_kev(record, probs)
+            result.update({
+                "status": "completed",
+                "raw_response": raw,
+                "prediction": {"probabilities": probs},
+                "action_prediction": action_prediction,
+                "score": score_actions(action_prediction, target_actions),
+                "latency_ms": 1000 * (time.perf_counter() - start),
+                "attempts": attempt + 1,
+            })
             return result
         except Exception as error:
             last_error = error
@@ -225,9 +238,16 @@ def main() -> None:
                 stream.write(json.dumps(item, ensure_ascii=False) + "\n")
                 continue
             item_rows = prediction_rows(item["record"], item["prediction"])
-            stream.write(json.dumps({"request_sha256": record_digest(api_request(item["record"])),
-                                     "id": item["id"], "prediction": item["prediction"], "rows": item_rows},
-                                    ensure_ascii=False, allow_nan=False) + "\n")
+            stream.write(json.dumps({
+                "request_sha256": record_digest(api_request(item["record"])),
+                "id": item["id"],
+                "status": item["status"],
+                "prediction": item["prediction"],
+                "action_prediction": item["action_prediction"],
+                "target_actions": item["target_actions"],
+                "score": item["score"],
+                "rows": item_rows,
+            }, ensure_ascii=False, allow_nan=False) + "\n")
             rows.extend(item_rows)
     write_json(args.output / "rows.json", rows)
     report = summarize(rows)
@@ -235,6 +255,7 @@ def main() -> None:
         "coverage": {"requested_records": len(records), "requested_questions": sum(len(r["questions"]) for r in records),
                      "evaluated_records": len(result_items) - len(failures),
                      "evaluated_questions": len(rows), "rejected_records": len(failures)},
+        "ffd_accuracy": aggregate_action_results(result_items),
         "failures": failures,
         "latency_ms": {"mean": sum(item["latency_ms"] for item in result_items) / len(result_items),
                        "p95": sorted(item["latency_ms"] for item in result_items)[max(0, int(len(result_items) * 0.95) - 1)]},
@@ -249,6 +270,7 @@ def main() -> None:
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     temporary_results.unlink(missing_ok=True)
     print(json.dumps({"coverage": report["coverage"], "clean": report["clean"],
+                      "ffd_accuracy": report["ffd_accuracy"],
                       "failed_records": len(failures)}, ensure_ascii=False, indent=2))
 
 
