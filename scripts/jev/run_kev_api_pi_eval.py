@@ -88,6 +88,23 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def benchmark_record(record: dict[str, Any], row: int) -> dict[str, Any]:
+    """Add the Kev benchmark metadata expected by prediction_rows()."""
+    normalized = dict(record)
+    metadata = dict(record["_meta"])
+    task_key = metadata["task_key"]
+    metadata.update({
+        "id": task_key,
+        "group_id": metadata.get("sample_id", task_key),
+        "source": metadata.get("source_model", "custom"),
+        "variant": "clean",
+        "row": row,
+        "split": "custom",
+    })
+    normalized["_meta"] = metadata
+    return normalized
+
+
 def parse_json(text: str) -> dict[str, Any]:
     value = text.strip()
     if value.startswith("```"):
@@ -163,9 +180,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
-    records = [json.loads(line) for line in args.data.read_text().splitlines() if line.strip()]
-    if not records:
+    raw_records = [json.loads(line) for line in args.data.read_text().splitlines() if line.strip()]
+    if not raw_records:
         raise ValueError("empty Kev test set")
+    records = [benchmark_record(record, row) for row, record in enumerate(raw_records)]
     args.output.mkdir(parents=True)
     manifest = {
         "revision": args.output.name,
@@ -181,13 +199,18 @@ def main() -> None:
     }
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     result_items: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [executor.submit(evaluate_one, record, args.model, args.provider, args.thinking, args.timeout, args.retries)
-                   for record in records]
-        for future in as_completed(futures):
-            result_items.append(future.result())
-            if len(result_items) % 50 == 0:
-                print(f"evaluated {len(result_items)}/{len(records)}", flush=True)
+    temporary_results = args.output / "results.tmp.jsonl"
+    with temporary_results.open("w", encoding="utf-8") as temporary_stream:
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = [executor.submit(evaluate_one, record, args.model, args.provider, args.thinking, args.timeout, args.retries)
+                       for record in records]
+            for future in as_completed(futures):
+                result = future.result()
+                result_items.append(result)
+                temporary_stream.write(json.dumps(result, ensure_ascii=False) + "\n")
+                temporary_stream.flush()
+                if len(result_items) % 50 == 0:
+                    print(f"evaluated {len(result_items)}/{len(records)}", flush=True)
 
     # Import the upstream Kev metric implementation only on the cluster, where third_party/kev is available.
     from kev.benchmark import prediction_rows, summarize
@@ -225,6 +248,7 @@ def main() -> None:
     manifest.update({"status": "completed", "completed_records": len(result_items) - len(failures),
                      "failed_records": len(failures), "completed_at": datetime.now(timezone.utc).isoformat()})
     (args.output / "run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    temporary_results.unlink(missing_ok=True)
     print(json.dumps({"coverage": report["coverage"], "clean": report["clean"],
                       "failed_records": len(failures)}, ensure_ascii=False, indent=2))
 
