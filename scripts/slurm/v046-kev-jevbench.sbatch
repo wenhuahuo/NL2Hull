@@ -47,6 +47,7 @@ EXTRA_ARGS=()
 case "${MODE}" in
   full) ;;
   smoke) EXPERIMENT="${EXPERIMENT}_smoke"; EXTRA_ARGS=(--limit 1) ;;
+  smoke_repaired) EXPERIMENT="${EXPERIMENT}_smoke_repaired"; EXTRA_ARGS=(--limit 1) ;;
   *) echo "ERROR: unknown mode ${MODE}" >&2; exit 2 ;;
 esac
 OUTPUT_DIR="${PROJECT_DIR}/outputs/${EXPERIMENT}"

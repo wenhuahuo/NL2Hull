@@ -99,7 +99,7 @@ def main() -> None:
 
     report = summarize(tasks, outcomes)
     write_json(args.output / "report.json", report)
-    manifest.update(status="completed", valid_records=report["clean"]["n_valid"],
+    manifest.update(status="completed", valid_records=report["n_valid"],
                     rejected_records=sum(not row["ok"] for row in outcomes),
                     finished_at=datetime.now(timezone.utc).isoformat())
     write_json(args.output / "run_manifest.json", manifest)
