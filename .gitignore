@@ -9,3 +9,12 @@ datasets/
 .DS_Store
 *.egg-info/
 .pi-runtime-v038/
+
+# LaTeX build products; manuscript sources remain tracked.
+/docs/paper/*.abs
+/docs/paper/*.aux
+/docs/paper/*.fdb_latexmk
+/docs/paper/*.fls
+/docs/paper/*.log
+/docs/paper/*.out
+/docs/paper/*.pdf
