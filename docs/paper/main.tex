@@ -307,15 +307,28 @@ description into a typed decision record for model training and evaluation.
 
 \paragraph{Ship-form sources.}
 The source collection contains twelve ship-form models. Eleven models were
-collected from the GrabCAD account of Abdelrahman Mamdouh
-(\url{https://grabcad.com/abdelrahman.mamdouh-7}), and the DTC model was included
-from the APPSolver shipBench source recorded in its metadata. The collection spans
-container ships, tanker and naval hulls, round-bilge hulls, a frigate, a work
-boat, and analytical or benchmark hull forms. The source models were converted to
-a common coordinate convention with the aft extremity at longitudinal coordinate
-zero, the bow at one, the baseline at vertical coordinate zero, and the centreline
-at transverse coordinate zero. This common convention supplies the geometric
-states used by the representation and action-generation procedures.
+collected from GrabCAD\footnote{\url{https://grabcad.com/abdelrahman.mamdouh-7}},
+and the DTC model was obtained from the official OpenFOAM~7 tutorial
+resources\footnote{\url{https://github.com/OpenFOAM/OpenFOAM-7/blob/master/tutorials/resources/geometry/DTC-scaled.stl.gz}}.
+The collection includes tankers, container ships, and other hull types, as shown
+in Fig.~\ref{fig:source-hulls}. To use these models within a common design
+framework, their coordinates were standardized with the aft extremity at
+longitudinal coordinate zero, the bow at one, the baseline at vertical coordinate
+zero, and the centreline at transverse coordinate zero. These standardized models
+provide the geometric states for the representation and action-generation
+procedures.
+
+\begin{figure*}[t]
+\centering
+\fbox{\parbox[c][6cm][c]{0.94\textwidth}{\centering
+Ship-form collection: placeholder for a twelve-model overview}}
+\caption{Ship-form models used to construct the dataset: the container-ship
+benchmark DTC, the naval benchmark DTMB5415, the container-ship benchmark KCS,
+the tanker benchmark KVLCC2, a generic container ship, a frigate, the round-bilge
+4a model and full-scale variant, the S-175 underwater hull, Series~60, the Wigley
+hull, and a work boat.}
+\label{fig:source-hulls}
+\end{figure*}
 
 \paragraph{Structured FFD action dataset.}
 For each ship-form state, the generator samples executable FFD actions and applies
@@ -326,46 +339,51 @@ specification, the interaction turns, and the geometric measurements after each
 turn. The action specification includes the edited region, operation, magnitude,
 spatial extents, symmetry, and optional geometric constraints.
 
-The 30,000-record structured dataset contains four interaction groups. Single
-edits account for 9,000 records, multi-region edits performed in one turn account
-for 7,500 records, two-turn edits in one region account for 7,500 records, and
-explicit-magnitude edits with spatial ranges account for 6,000 records. The
-single-edit group samples one action from the available region and operation
-combinations. The multi-region group combines two or three regions in one turn.
-The two-turn group applies a second operation after the first operation at the
-same region; for directional operations, the second operation can use the
-opposite direction. The explicit group assigns a numerical magnitude and
-longitudinal and vertical ranges to the action. This construction supplies both
-single-step decisions and sequential editing contexts.
+Using this procedure, we sampled and generated 30,000 FFD operation records.
+The 30,000-record dataset covers four design scenarios to capture both simple
+edits and more involved requests. Single-edit records describe one local or
+global modification and account for 9,000 records. To capture instructions that
+combine several changes, a further 7,500 records specify edits to two or three
+regions in a single request.
+
+Iterative design also requires a modification to be refined in a later step.
+Accordingly, 7,500 records describe two successive edits in the same region,
+with the second edit continuing the previous change or, for directional
+operations, acting in the opposite direction. Finally, 6,000 records express
+the desired change through an explicit numerical magnitude and longitudinal and
+vertical ranges. Together, these scenarios provide examples of isolated edits,
+combined edits, sequential refinement, and numerically specified requests.
 
 \paragraph{Natural-language description generation.}
-Each structured turn is paired with four Chinese natural-language descriptions.
-The descriptions are generated from the structured action specification by seven
-language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7, DeepSeek-Flash,
-GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. The generation instruction requires the
-description to preserve the edited region, operation, relative magnitude, spatial
-range, and geometric constraints. It also requires explicit numerical values to
-be copied exactly when the action uses numerical parameters.
+Each FFD operation record provides the basis for generating Chinese
+natural-language design requests. Its structured action specification is given
+to one of seven language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7,
+DeepSeek-Flash, GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. Four alternative
+descriptions are requested for each editing step, including both steps in a
+two-step record. The generation instruction requires these descriptions to
+preserve the edited region, operation, relative magnitude, spatial range, and
+geometric constraints. For numerically specified requests, the numerical values
+must be reproduced exactly.
 
-Several controlled variations increase linguistic diversity. Equivalent actions
-receive multiple sentence forms, qualitative intensity expressions are generated
-for ordinal magnitudes, and explicit actions retain their numerical values and
-ranges. A deterministic subset receives a short ship-design or engineering
-scenario, while the remaining descriptions directly state the requested edit.
-The generation tasks are distributed across the seven models so that one model's
-wording does not determine the complete language distribution. Generated texts are
-checked for plain-language format, required numerical values, and prohibited
-exposure of internal magnitude labels.
+To increase data diversity, we vary both the source of the descriptions and the
+way the design intent is expressed. Distributing generation across seven models
+reduces dependence on a single model's phrasing. Within each editing step,
+multiple descriptions vary sentence structure, verbs, and intensity expressions
+while referring to the same target action. Qualitative requests use expressions
+such as slight or substantial change, whereas precise requests retain the
+specified numerical magnitude and ranges. In addition, a subset of the
+requests includes a short ship-design or engineering background. This introduces
+contextual variation around the same editing goal, alongside requests that state
+the modification directly.
 
-The source language checkpoint contains 149,998 descriptions. Cleaning removes
-conflicting duplicate-text groups and retains the split-priority order of test,
-validation, and training data. Rollback-oriented augmentations were generated
-alongside the other language variants; 8,076 records with invalid rollback labels
-were excluded during dataset preparation. The final dataset retains 134,558
-records, including 2,019 continuous multi-step records. Exact duplicate texts
-were removed across splits, with held-out splits receiving priority. The resulting
-training, validation, and test partitions contain 88,604, 22,758, and 23,196
-records, respectively.
+Before constructing the decision dataset, the generated descriptions are checked
+for plain-language format, required numerical values, and disclosure of internal
+magnitude labels. The original natural-language dataset contains 149,998
+descriptions. Data cleaning removes conflicting duplicate-text groups, and
+8,076 rollback-oriented augmentations with invalid labels are excluded. After
+cleaning and selection, the final dataset contains 134,558 records. The training,
+validation, and test partitions contain 88,604, 22,758, and 23,196 records,
+respectively.
 
 \paragraph{Typed decision records.}
 Every natural-language record is converted into a set of typed questions with
