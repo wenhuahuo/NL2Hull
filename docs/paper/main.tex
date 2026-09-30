@@ -9,6 +9,7 @@
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{xcolor}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -440,18 +441,164 @@ action-level FFD quality as separate measurements.
 \subsection{NURBS Representation and FFD Accuracy}
 \label{sec:nurbs-results}
 
-\paragraph{Claim to test.}
-The NURBS representation should reconstruct valid ship forms with sufficiently low
-geometric error, while the FFD executor should produce valid deformations under the
-specified action and constraint conditions.
+This section evaluates two geometric components of the framework. First, the
+non-uniform rational B-spline (NURBS) representation is assessed by reconstructing
+ship hulls from their extracted waterlines and longitudinal profiles. Second, the
+free-form deformation (FFD) operator is assessed through representative local,
+global, and shape-oriented edits applied to a fitted hull. The first experiment
+quantifies reconstruction error across a diverse hull set, while the second
+combines visual inspection with geometric validity and volume measurements.
 
-\paragraph{Planned evidence.}
-Report fitting and reconstruction errors, watertightness and volume validity, and
-representative before/after hull visualizations. Include a table separating
-representation error from post-FFD validity so that geometric fidelity is not
-confounded with decision accuracy.
+\subsubsection{NURBS-based hull reconstruction}
+\label{sec:nurbs-reconstruction-results}
 
-\evidence{Final quantitative reconstruction and FFD execution results.}
+The reconstruction experiment used twelve triangulated ship hulls covering
+container ships, tankers, naval hulls, benchmark hulls, and other geometries. For
+each input, the procedure extracted 33 horizontal sections, fitted the aft and fore
+segments of each section with cubic clamped NURBS curves, fitted the aft and fore
+longitudinal profiles, and reconstructed a closed hull mesh by connecting the
+sampled section rings. The reconstructed mesh was compared with the input surface
+using nearest-neighbour distances. Additional errors were calculated for waterline
+half-breadth and for the two longitudinal profile fits. All coordinates were
+normalized by the input hull length, so the reported errors are dimensionless.
+
+Figure~\ref{fig:kcs-reconstruction} illustrates the reconstruction for the KCS
+hull. The longitudinal profile plot shows the fitted fore and aft curves against
+the extracted centre-plane contours. The three-dimensional comparison shows the
+input and reconstructed hull surfaces, while the closure diagnostic records the
+geometric closure of the reconstructed section-based surface.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v020_watertight_loft/hulls/KCS/profile_stem_stern.png}
+        \caption{Longitudinal profile fitting.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v020_watertight_loft/hulls/KCS/comparison.png}
+        \caption{Hull reconstruction comparison.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v020_watertight_loft/closure_details.png}
+        \caption{Closure diagnostic.}
+    \end{subfigure}
+    \caption{NURBS-based reconstruction of the KCS hull. The input surface is
+    represented by fitted longitudinal profiles and waterline curves, then
+    reconstructed as a closed section-based hull mesh.}
+    \label{fig:kcs-reconstruction}
+\end{figure*}
+
+Table~\ref{tab:reconstruction-error} summarizes the reconstruction errors. The
+surface nearest-neighbour RMSE ranged from 0.0024 for the Wigley hull to 0.0113
+for DTC. The KCS hull achieved a surface nearest-neighbour RMSE of 0.0062, a
+waterline half-breadth RMSE of 0.0031, a fore-profile RMSE of 0.0003, and an
+aft-profile RMSE of 0.0008. Across the twelve hulls, the profile-fitting errors
+remained below 0.0013 for the fore profiles and below 0.0013 for the aft profiles
+when measured by RMSE. These measurements show that the parameterization preserves
+the extracted longitudinal and transverse geometry across multiple hull forms.
+
+\begin{table*}[t]
+\caption{Reconstruction errors for the twelve-hull NURBS representation
+experiment. All quantities are normalized by the input hull length. Surface RMSE
+is computed from bidirectional nearest-neighbour distances between input and
+reconstructed surface vertices.}
+\label{tab:reconstruction-error}
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Hull & Surface RMSE & Waterline width RMSE & Fore-profile RMSE & Aft-profile RMSE \\
+\midrule
+DTC                         & 0.01130 & 0.00302 & 0.00038 & 0.00121 \\
+DTMB5415                    & 0.00524 & 0.00227 & 0.00070 & 0.00072 \\
+KCS                         & 0.00623 & 0.00312 & 0.00034 & 0.00082 \\
+KVLCC2                      & 0.00975 & 0.00140 & 0.00012 & 0.00092 \\
+Containership               & 0.00690 & 0.00202 & 0.00003 & 0.00038 \\
+Firgate                     & 0.00658 & 0.00284 & 0.00023 & 0.00084 \\
+NPL round bilge (model)     & 0.00849 & 0.00338 & 0.00004 & 0.00052 \\
+NPL round bilge (full scale)& 0.00546 & 0.00208 & 0.00008 & 0.00097 \\
+S-175 U-water               & 0.01006 & 0.00313 & 0.00012 & 0.00079 \\
+Series 60                   & 0.00893 & 0.00094 & 0.00021 & 0.00055 \\
+Wigley hull                 & 0.00241 & 0.00018 & 0.00011 & 0.00079 \\
+Work boat                   & 0.00761 & 0.00504 & 0.00030 & 0.00090 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsubsection{FFD operation visualization and geometric validity}
+\label{sec:ffd-results}
+
+The FFD experiment applied 30 predefined operations to a fitted KVLCC2 hull. The
+cases covered bow, stern, and bulb edits; midbody, deck, and bilge edits; global
+length and breadth changes; and shape-oriented operations such as fullness, flare,
+and bulb-length changes. Directional operations used the plan view for transverse
+changes and the side view for vertical and longitudinal changes. Each deformed hull
+was reconstructed from the updated NURBS waterlines and evaluated for watertightness
+and valid enclosed volume.
+
+Figure~\ref{fig:ffd-representative} presents three representative operations. The
+bow-outward case expands the forward transverse form, the bulb-forward case moves
+the bulb region in the longitudinal direction, and the global-breadth case scales
+the transverse dimension across the hull. The displayed changes remain localized
+for the first two operations and span the complete hull for the third operation.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/local_bow_outward/comparison.png}
+        \caption{Bow outward.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/local_bulb_forward/comparison.png}
+        \caption{Bulb forward.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/global_increase_breadth/comparison.png}
+        \caption{Global breadth increase.}
+    \end{subfigure}
+    \caption{Representative FFD operations applied to the fitted KVLCC2 hull.
+    Each panel compares the original fitted hull with the hull obtained after the
+    indicated control-point deformation.}
+    \label{fig:ffd-representative}
+\end{figure*}
+
+Table~\ref{tab:ffd-validity} reports the geometric measurements for the same
+representative cases. The bow-outward, bulb-forward, and global-breadth operations
+produced volume ratios of 1.037, 1.033, and 1.120, respectively. All 30 tested
+cases passed the watertightness and enclosed-volume checks. The volume changes
+follow the selected operation: local transverse and longitudinal edits modify the
+enclosed volume in the affected region, whereas global breadth scaling produces a
+larger volume change across the entire hull.
+
+\begin{table}[t]
+\caption{Geometric measurements for representative FFD operations on KVLCC2.}
+\label{tab:ffd-validity}
+\centering
+\scriptsize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrcc}
+\toprule
+Operation & Level & Volume ratio & Watertight & Valid volume \\
+\midrule
+Bow outward             & 5 & 1.037 & Yes & Yes \\
+Bulb forward            & 4 & 1.033 & Yes & Yes \\
+Global breadth increase & 5 & 1.120 & Yes & Yes \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Together, the reconstruction and deformation experiments establish a continuous
+geometric workflow from STL input to NURBS parameters, from control-point updates
+to reconstructed hull surfaces, and from local or global FFD operations to
+geometric validity checks. The reconstruction errors quantify representation
+fidelity, while the FFD cases demonstrate the spatial selectivity and global
+scaling behaviour of the deformation operators.
 
 \subsection{Ship Design Decision Benchmark Evaluation}
 \label{sec:benchmark}
