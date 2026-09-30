@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:a6000:1
 #SBATCH --mem=32G
-#SBATCH --time=08:00:00
+#SBATCH --time=02:00:00
 #SBATCH --chdir=/data/home/wenhua_huo/Documents/NurbsShipGen
 #SBATCH --output=logs/slurm/%x-%j.out
 #SBATCH --error=logs/slurm/%x-%j.err
@@ -16,6 +16,8 @@ set -euo pipefail
 
 MODEL_KEY="${1:?model key required: kev08, kev2b, or kev4b}"
 TIER="${2:?tier required: original, easy, or hard}"
+CODE_REVISION="${3:?local Git commit required}"
+MODE="${4:-full}"
 PROJECT_DIR="/data/home/wenhua_huo/Documents/NurbsShipGen"
 KEV_SOURCE="${PROJECT_DIR}/third_party/kev"
 KEV_ENV="${HOME}/.conda/envs/kev-v039"
@@ -41,7 +43,14 @@ case "${TIER}" in
   original|easy|hard) DATA_FILE="${DATA_DIR}/${TIER}.jsonl" ;;
   *) echo "ERROR: unknown JevBench tier ${TIER}" >&2; exit 2 ;;
 esac
+EXTRA_ARGS=()
+case "${MODE}" in
+  full) ;;
+  smoke) EXPERIMENT="${EXPERIMENT}_smoke"; EXTRA_ARGS=(--limit 1) ;;
+  *) echo "ERROR: unknown mode ${MODE}" >&2; exit 2 ;;
+esac
 OUTPUT_DIR="${PROJECT_DIR}/outputs/${EXPERIMENT}"
+[[ "${SLURM_JOB_NAME}" == "${EXPERIMENT}" ]] || { echo "ERROR: job name must match ${EXPERIMENT}" >&2; exit 2; }
 
 if ! command -v module >/dev/null 2>&1; then source /etc/profile.d/openscow-modules.sh; fi
 module purge
@@ -50,14 +59,24 @@ source "${CONDA_ROOT}/etc/profile.d/conda.sh"
 source "${KEV_ENV}/bin/activate"
 cd "${PROJECT_DIR}"
 
-[[ -r "${DATA_FILE}" && -r "${EVAL_SCRIPT}" ]] || { echo "ERROR: missing JevBench input or evaluator" >&2; exit 2; }
+[[ -r "${DATA_FILE}" && -r "${DATA_DIR}/manifest.json" && -r "${EVAL_SCRIPT}" ]] || { echo "ERROR: missing JevBench input or evaluator" >&2; exit 2; }
 [[ -d "${KEV_SOURCE}/kev" ]] || { echo "ERROR: missing Kev source" >&2; exit 2; }
 [[ -f "${RUN_DIR}/adapter_model.safetensors" && -f "${RUN_DIR}/head.pt" && -f "${RUN_DIR}/training_config.json" ]] || {
   echo "ERROR: incomplete Kev checkpoint ${RUN_DIR}" >&2; exit 2;
 }
 [[ ! -e "${OUTPUT_DIR}" ]] || { echo "ERROR: refusing to overwrite ${OUTPUT_DIR}" >&2; exit 2; }
 
-export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}"
+python - "${DATA_FILE}" "${DATA_DIR}/manifest.json" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+path, manifest_path = map(Path, sys.argv[1:])
+manifest = json.loads(manifest_path.read_text())
+expected = manifest["files"][path.name]
+if hashlib.sha256(path.read_bytes()).hexdigest() != expected["sha256"]:
+    raise SystemExit("JevBench dataset hash mismatch")
+print(f"verified {path.name}: {expected['records']} records")
+PY
+export PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}:${PROJECT_DIR}/third_party/jevbench"
 export HF_ENDPOINT="https://hf-mirror.com"
 export HF_HOME="${PROJECT_DIR}/third_party/hf-cache"
 printf 'job=%s model=%s tier=%s run=%s records=%s data_sha256=%s hf_endpoint=%s start=%s\n' \
@@ -67,5 +86,6 @@ python -u "${EVAL_SCRIPT}" \
   --run "${RUN_DIR}" \
   --data "${DATA_FILE}" \
   --output "${OUTPUT_DIR}" \
-  --device cuda
+  --device cuda \
+  --code-revision "${CODE_REVISION}" "${EXTRA_ARGS[@]}"
 printf 'job=%s finished=%s output=%s\n' "${SLURM_JOB_ID}" "$(date -Is)" "${OUTPUT_DIR}"
