@@ -115,21 +115,24 @@ coordinates.
 \subsection{NURBS-Based Ship Representation and FFD}
 \label{sec:nurbs-ffd}
 
-The ship form is represented by longitudinal waterline curves and fore and aft
-contours in the longitudinal--vertical plane. Non-uniform rational B-splines
-(NURBS) describe these curves through control points, positive weights, and knot
-vectors. Free-form deformation (FFD) operates directly on the waterline control
-points to express local and global ship-form changes.
+To provide a compact parameterization for localized and global ship-form
+deformation, the ship form is represented by longitudinal waterline curves and
+fore and aft contours in the longitudinal--vertical plane. Non-uniform rational
+B-splines (NURBS) describe these curves through control points, positive weights,
+and knot vectors. Free-form deformation (FFD) then operates directly on the
+waterline control points, so local and global ship-form changes can be expressed
+through the same parameterized representation.
 
 \paragraph{Coordinate system and waterline representation.}
 To express different ship forms in a common coordinate system, all coordinates
-are scaled by the hull length. The longitudinal origin is at the aft extremity,
-the transverse origin is on the centreline, and the vertical origin is at the
-lowest point of the hull. The normalized longitudinal extent is $[0,1]$.
-Waterlines at prescribed elevations describe the longitudinal distribution of
-half-breadth. Each half-waterline comprises aft and fore segments joined at the
-midpoint of its longitudinal extent. Each segment is represented by a cubic,
-clamped NURBS curve with eight control points:
+are first scaled by the hull length. The longitudinal origin is at the aft
+extremity, the transverse origin is on the centreline, and the vertical origin is
+at the lowest point of the hull. The normalized longitudinal extent is therefore
+$[0,1]$. Within this coordinate system, waterlines at prescribed elevations
+describe the longitudinal distribution of half-breadth. Each half-waterline
+comprises aft and fore segments joined at the midpoint of its longitudinal
+extent. Each segment is represented by a cubic, clamped NURBS curve with eight
+control points:
 \begin{equation}
  \mathbf{c}(u)=
  \frac{\sum_{i=0}^{7} B_{i,3}(u)w_i\mathbf{p}_i}
@@ -139,40 +142,44 @@ clamped NURBS curve with eight control points:
 \end{equation}
 where $\mathbf{p}_i$ is a control point, $w_i>0$ is its weight, and $B_{i,3}$ is
 the cubic B-spline basis function. The knot vector is clamped at both ends and
-has uniformly spaced interior knots. Both segments are parameterized from the
-outer hull extremity towards the section midpoint. Three interior control points
+has uniformly spaced interior knots. Both segments are parameterized from the outer hull extremity towards the
+section midpoint. In this parameterization, three interior control points
 coincide to describe the transition towards the central portion of the waterline.
-Reflection of the half-waterline across the centreline defines the complete
+Reflection of the half-waterline across the centreline then defines the complete
 symmetric section.
 
 \paragraph{Longitudinal profile representation.}
-The fore and aft longitudinal profiles describe the hull contours in the
-longitudinal--vertical plane over the normalized longitudinal ranges
-$[0.65,1]$ and $[0,0.35]$, respectively. Each profile uses a cubic, clamped curve
-with 32 control points and unit weights, following the rational curve expression
-in Eq.~\ref{eq:waterline-nurbs} with the summation extended to all 32 controls.
-The deck and lower hull portions within each profile share one curve
+The waterline curves are complemented by fore and aft longitudinal profiles,
+which describe the hull contours in the longitudinal--vertical plane over the
+normalized ranges $[0.65,1]$ and $[0,0.35]$, respectively. Each profile uses a
+cubic, clamped curve with 32 control points and unit weights, following the
+rational curve expression in Eq.~\ref{eq:waterline-nurbs} with the summation
+extended to all 32 controls. The deck and lower hull portions within each
+profile share one curve representation.
+
+To preserve local geometric detail in the fore region, its knot vector uses eight
+locally concentrated interior knots around the bulb-related parameter and a knot
+of multiplicity three at the upper-contour corner. The remaining interior knots
+are distributed over the intervening parameter intervals, whereas the aft profile
+uses uniformly spaced interior knots. At each waterline elevation, the foremost
+intersection with the fore profile and the aftmost intersection with the aft
+profile specify the corresponding centreline endpoints. These intersections
+therefore couple the longitudinal profiles and waterlines within the ship-form
 representation.
 
-The fore profile uses eight locally concentrated interior knots around the
-bulb-related parameter and a knot of multiplicity three at the upper-contour
-corner. The remaining interior knots are distributed over the intervening
-parameter intervals. The aft profile uses uniformly spaced interior knots.
-At each waterline elevation, the foremost intersection with the fore profile
-and the aftmost intersection with the aft profile specify the corresponding
-centreline endpoints. This couples the longitudinal profiles and waterlines
-within the ship-form representation.
-
 \paragraph{Control-point deformation.}
-An editing action specifies a hull region, an operation, a magnitude, and optional
-longitudinal and vertical extents. Regions comprise the bow, stern, bulb,
-midbody, deck, bilge, and complete hull. The magnitude is a fraction of the
-relevant hull dimension; ordinal levels correspond to $0$, $0.01$, $0.02$,
-$0.04$, $0.08$, and $0.12$. Waterline controls are expressed in three dimensions,
-with their initial vertical coordinates set to the section elevation.
+With this representation established, an editing action specifies a hull region,
+an operation, a magnitude, and optional longitudinal and vertical extents. Regions
+comprise the bow, stern, bulb, midbody, deck, bilge, and complete hull. The
+magnitude is a fraction of the relevant hull dimension. To accommodate vague
+natural-language intents, the magnitude is discretized into six discrete FFD
+levels with values $0$, $0.01$, $0.02$, $0.04$, $0.08$, and $0.12$; the next
+subsection describes how the decision framework selects these levels. Waterline
+controls are expressed in three dimensions, with their initial vertical
+coordinates set to the section elevation.
 
-Local deformation is weighted by each control point's position within the
-selected longitudinal and vertical extents. Smooth transitions use
+Within the selected longitudinal and vertical extents, local deformation is
+weighted by each control point's position. Smooth transitions use
 \begin{equation}
  S(t)=3\tau^2-2\tau^3,
  \qquad \tau=\min(1,\max(0,t)).
@@ -187,10 +194,11 @@ weight is
  \label{eq:local-window}
 \end{equation}
 Full-coordinate intervals receive unit weight, and selected terminal vertical
-sections are included. The product of longitudinal and vertical weights defines
-the local influence factor $M$.
+sections are included. The product of the longitudinal and vertical weights then
+defines the local influence factor $M$.
 
-Transverse expansion and contraction multiply the control-point half-breadth by
+Using this influence factor, transverse expansion and contraction multiply the
+control-point half-breadth by
 $1+\alpha M$ and $1-\alpha M$, respectively, where $\alpha$ is the magnitude
 fraction. Fullness changes follow these transverse rules, and flare-increase
 operations use the expansion rule over the selected extent. Vertical operations
@@ -203,13 +211,14 @@ global breadth changes scale transverse coordinates. Actions are applied
 sequentially to the updated control points.
 
 \paragraph{Geometric constraints.}
-Bilateral symmetry is maintained through the half-waterline representation.
-Deck-line preservation attenuates local deformation with increasing elevation
-and fixes the uppermost controls. Volume-preserving edits compensate transverse
-control-point coordinates using the ratio of pre-edit to post-edit enclosed
-volume; concurrent deck-line preservation restricts this compensation to controls
-below the uppermost level. Fixed-draught requests reject vertical operations.
-Longitudinal translations include an ordering correction, and updated waterlines
+The deformation rules are applied together with geometric constraints. Bilateral
+symmetry is maintained through the half-waterline representation. Deck-line
+preservation attenuates local deformation with increasing elevation and fixes the
+uppermost controls. Volume-preserving edits compensate transverse control-point
+coordinates using the ratio of pre-edit to post-edit enclosed volume; concurrent
+deck-line preservation restricts this compensation to controls below the
+uppermost level. Fixed-draught requests reject vertical operations. Finally,
+longitudinal translations include an ordering correction, and updated waterlines
 are checked for longitudinal monotonicity and non-negative half-breadth. An
 optional shape-change threshold is imposed on changes in normalized second
 differences of the longitudinal and transverse control-point coordinates.
@@ -217,37 +226,39 @@ differences of the longitudinal and transverse control-point coordinates.
 \subsection{Decision Framework for Natural-Language-Driven Ship Design}
 \label{sec:decision-framework}
 
-We formulate natural-language-driven ship-form editing as a discrete decision
-task. A design request is decomposed into the number of deformation actions and
-the region and operation associated with each action. A natural-language decision
-model assigns probabilities to predefined alternatives, and the highest-probability
-answers define an ordered sequence of region--operation pairs. These decisions
-use the same region and operation vocabulary as the control-point deformation
-rules in Section~\ref{sec:nurbs-ffd}.
+Building on the parameterized ship form and deformation rules above, we formulate
+natural-language-driven ship-form editing as a discrete decision task. A design
+request is decomposed into the number of deformation actions and the region and
+operation associated with each action. A natural-language decision model assigns
+probabilities to predefined alternatives; the highest-probability answers then
+define an ordered sequence of region--operation pairs. These decisions use the
+same region and operation vocabulary as the control-point deformation rules in
+Section~\ref{sec:nurbs-ffd}.
 
 \paragraph{Decision representation.}
-The model receives the natural-language request together with typed questions.
-Each question specifies an instruction and a set of candidate answers. The
-number of actions is selected from one, two, and three. For each available action
-position, a region question selects among the bow, stern, bulb, midbody, deck,
-bilge, and complete hull. An operation question selects among transverse,
-vertical, or longitudinal movement; increased or decreased fullness; increased
-flare; bulb-length modification; and increased or decreased global length or
-breadth. Position-indexed questions preserve the order of the actions in a
-multi-operation request.
+To make this decision process explicit, the model receives the natural-language
+request together with typed questions. Each question specifies an instruction and
+a set of candidate answers. The number of actions is selected from one, two, and
+three. For each available action position, a region question selects among the
+bow, stern, bulb, midbody, deck, bilge, and complete hull. An operation question
+selects among transverse, vertical, or longitudinal movement; increased or
+decreased fullness; increased flare; bulb-length modification; and increased or
+decreased global length or breadth. Position-indexed questions preserve the
+order of the actions in a multi-operation request.
 
-Additional questions characterize the requested magnitude and constraints.
+The decision record also characterizes the requested magnitude and constraints.
 A categorical question distinguishes qualitative intensity from explicit
-numerical magnitude or spatial extent. An ordinal question selects among six
-levels, from no change to very large change, using the magnitude scale in
-Section~\ref{sec:nurbs-ffd}. For requests expressed with explicit numerical
-values, the ordinal question uses the no-change entry by convention. Two Boolean
-questions identify requests to preserve displacement and the deck line. These
-questions associate the additional design requirements with their corresponding
-action positions.
+numerical magnitude or spatial extent. A discrete FFD-level question selects
+among the six levels introduced in Section~\ref{sec:nurbs-ffd}, from no change to
+very large change. For requests expressed with explicit numerical values, this
+question uses the no-change entry by convention. Two Boolean questions identify
+requests to preserve displacement and the deck line. Together, these questions
+associate the additional design requirements with their corresponding action
+positions.
 
 \paragraph{Probability-based decision making.}
-We use Kev as the specialized natural-language decision model. Its decision
+We use Kev as the foundation model for natural-language decision making in this
+framework\footnote{\url{https://github.com/jaredpalmer/kev}}. Its decision
 interface returns a probability distribution over the candidate answers for each
 question. Let $t$ denote the request text, $q_j$ the $j$th question, and
 $\mathcal{Y}_j$ its candidate set. The distribution is written as
@@ -256,10 +267,9 @@ $\mathcal{Y}_j$ its candidate set. The distribution is written as
  \qquad y\in\mathcal{Y}_j,
  \label{eq:decision-distribution}
 \end{equation}
-where $\theta$ denotes the model parameters. Categorical and ordinal questions
-use distributions over their listed alternatives, while Boolean questions use
-false and true as the two alternatives. The interface retains probabilities for
-all candidates, and the selected answer is
+where $\theta$ denotes the model parameters. Categorical and discrete FFD-level questions use distributions over their listed
+alternatives, while Boolean questions use false and true as the two alternatives.
+The interface retains probabilities for all candidates, and the selected answer is
 \begin{equation}
  \hat{y}_j=\underset{y\in\mathcal{Y}_j}{\operatorname{arg\,max}}
           \ p_{\theta}(y\mid t,q_j).
@@ -269,8 +279,9 @@ This interface also supports comparison with native decision services and
 language models prompted to return the same candidate probability distributions.
 
 \paragraph{Ordered action projection.}
-The selected action count determines how many region--operation pairs are
-included in the decision output. If $\hat{k}$ is the selected count, and
+After the individual decisions have been made, the selected action count
+determines how many region--operation pairs are included in the decision output.
+If $\hat{k}$ is the selected count, and
 $\hat{r}_i$ and $\hat{o}_i$ are the selected region and operation at position $i$,
 the projected action sequence is
 \begin{equation}
@@ -279,31 +290,32 @@ the projected action sequence is
        (\hat{r}_{\hat{k}},\hat{o}_{\hat{k}})\bigr).
  \label{eq:action-projection}
 \end{equation}
-The projection checks that the request contains region and operation questions
-for every selected action position. A count exceeding the available positions
-is recorded as an invalid projection. The resulting ordered pairs provide a
-common representation of the model's deformation decisions.
+The projection first checks that the request contains region and operation
+questions for every selected action position. A count exceeding the available
+positions is recorded as an invalid projection. The resulting ordered pairs then
+provide a common representation of the model's deformation decisions.
 
 \paragraph{Correspondence with geometric operations.}
-The region decision identifies the spatial support of an edit, and the operation
-decision selects the corresponding control-point update rule in
-Section~\ref{sec:nurbs-ffd}. For example, a bow expansion decision corresponds to
-a transverse increase over the bow extent, while a global length-increase
+The projected region identifies the spatial support of an edit, while the
+projected operation selects the corresponding control-point update rule in
+Section~\ref{sec:nurbs-ffd}. For example, a bow expansion decision corresponds
+to a transverse increase over the bow extent, while a global length-increase
 decision corresponds to longitudinal scaling about the hull centre. The geometric
-executor takes a region and operation together with a magnitude, optional
-longitudinal and vertical extents, and constraint settings. It applies these
-complete action specifications sequentially to the waterline control points.
-Thus, the decision vocabulary specifies the location and type of ship-form edit,
-and the geometric action parameters specify its size, extent, and constraints.
+executor then combines the region and operation with a magnitude, optional
+longitudinal and vertical extents, and constraint settings before applying the
+complete action specification sequentially to the waterline control points.
+In this way, the decision vocabulary specifies the location and type of ship-form
+edit, and the geometric action parameters specify its size, extent, and
+constraints.
 
 \subsection{Ship Design Decision Dataset and Benchmark}
 \label{sec:dataset-benchmark}
 
-The dataset connects ship-form representations, executable free-form deformation
-(FFD) actions, and natural-language design requests. The construction process has
-four stages: collecting and standardizing ship forms, generating valid structured
-FFD actions, producing natural-language descriptions, and converting each
-description into a typed decision record for model training and evaluation.
+The dataset connects ship-form representations, executable FFD actions, and
+natural-language design requests. The construction process has four stages:
+collecting and standardizing ship forms, generating valid structured FFD actions,
+producing natural-language descriptions, and converting each description into a
+typed decision record for model training and evaluation.
 
 \paragraph{Ship-form sources.}
 The source collection contains twelve ship-form models. Eleven models were
@@ -389,11 +401,11 @@ respectively.
 Every natural-language record is converted into a set of typed questions with
 labelled candidate answers. The first question selects whether the request
 contains one, two, or three actions. Each action position then receives questions
-for its region and operation, followed by questions for qualitative or explicit
-magnitude mode, ordinal magnitude, displacement preservation, and deck-line
-preservation. Categorical questions use named alternatives, ordinal questions use
-six ordered levels from no change to very large change, and Boolean questions use
-true or false alternatives. The original action order is retained in the question
+for its region and operation, followed by questions for qualitative or explicit magnitude mode, the discrete
+FFD level, displacement preservation, and deck-line preservation. Categorical
+questions use named alternatives, discrete FFD-level questions use six levels from
+no change to very large change, and Boolean questions use true or false
+alternatives. The original action order is retained in the question
 identifiers and in the labels.
 
 The final benchmark is frozen before model comparison. The test partition contains
