@@ -606,38 +606,113 @@ design.
 \subsection{Ship Design Decision Benchmark Evaluation}
 \label{sec:benchmark}
 
-\paragraph{Claim supported by current results.}
-Under the shared frozen benchmark, specialized Kev models and several language
-models can be compared directly through the same question-level probability metrics;
-FFD action exact-match is reported as a separate projection metric.
+The first experiment evaluates the ability to answer typed ship-design questions
+and to project the resulting decisions into FFD operations. All systems received
+the same frozen set of 5,000 ship-design records and 43,496 expanded questions.
+The comparison includes Kev-0.8B as the specialized model developed in this work,
+the native JEV decision model, two high-capability language models, and three
+locally served language models with comparable parameter scales. Kev-2B, Kev-4B,
+and DeepSeek-Flash are excluded from this comparison because they serve the model-
+scale or auxiliary evaluation analyses.
+
+Question-level accuracy is calculated over successfully evaluated typed questions.
+FFD exact-match accuracy uses all 5,000 requested records, including failed model
+calls, malformed outputs, invalid probability distributions, and incompatible
+predicted action counts. The probability metrics use the returned distributions:
+negative log-likelihood, expected calibration error, and Brier score. Table~\ref{tab:benchmark-outline}
+reports the resulting comparison together with the number of evaluated records
+and questions.
 
 \begin{table*}[t]
-\caption{Outline of the shared frozen test-set comparison. Values currently
-available from the local reports are shown; negative log-likelihood, expected
-calibration error, and Brier score should be added from the final report extraction.}
+\caption{Performance on the frozen ship-design decision benchmark. Accuracy and
+FFD exact match are percentages. Evaluated records are shown as evaluated over
+requested records; question count is the number of valid expanded questions used
+for clean accuracy and probability metrics.}
 \label{tab:benchmark-outline}
 \centering
-\begin{tabular}{lrrrr}
+\scriptsize
+\begin{tabular}{lrrrrrrr}
 \toprule
-Model & Clean accuracy & NLL & ECE & FFD exact match \\
+Model & Records & Questions & Clean acc. & FFD exact & NLL & ECE & Brier \\
 \midrule
-Kev-0.8B       & 95.90\% & \todo{add} & \todo{add} & 99.32\% \\
-Kev-2B         & 95.92\% & \todo{add} & \todo{add} & 99.30\% \\
-Kev-4B         & 95.88\% & \todo{add} & \todo{add} & 99.24\% \\
-JEV            & 90.96\% & \todo{add} & \todo{add} & 84.52\% \\
-DeepSeek-Flash & 92.84\% & \todo{add} & \todo{add} & 98.40\% \\
-Claude Opus 5  & 92.87\% & \todo{add} & \todo{add} & 99.12\% \\
-GPT-5.6 Sol    & 92.44\% & \todo{add} & \todo{add} & 98.32\% \\
-Qwen3          & 75.61\% & \todo{add} & \todo{add} & 2.84\% \\
-Gemma3         & 66.97\% & \todo{add} & \todo{add} & 15.98\% \\
-Llama3.2       & 63.94\% & \todo{add} & \todo{add} & 2.16\% \\
+Kev-0.8B      & 5000/5000 & 43496 & 95.90\% & 99.32\% & 0.0951 & 0.0032 & 0.0551 \\
+JEV           & 4322/5000 & 38690 & 90.96\% & 84.52\% & 0.3092 & 0.0271 & 0.1266 \\
+Claude Opus 5 & 5000/5000 & 43496 & 92.87\% & 99.12\% & 0.2385 & 0.0607 & 0.1066 \\
+GPT-5.6 Sol   & 5000/5000 & 43496 & 92.44\% & 98.32\% & 0.5779 & 0.0571 & 0.1340 \\
+Qwen3         & 775/5000  & 5707  & 75.61\% & 2.84\%  & 1.2088 & 0.1148 & 0.3803 \\
+Gemma3        & 2641/5000 & 23335 & 66.97\% & 15.98\% & 1.4328 & 0.0225 & 0.4471 \\
+Llama3.2      & 557/5000  & 4271  & 63.94\% & 2.16\%  & 1.4999 & 0.0723 & 0.5063 \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-Discuss coverage and failure rates alongside accuracy. The table must distinguish
-question-level clean accuracy from turn-level FFD exact match; these metrics have
-different statistical objects and must not be merged into one ranking.
+Kev-0.8B achieved 95.90\% clean question accuracy and 99.32\% FFD
+turn-level exact-match accuracy. Its negative log-likelihood, expected calibration
+error, and Brier score were 0.0951, 0.0032, and 0.0551, respectively. JEV reached
+90.96\% question accuracy and 84.52\% FFD exact match, with lower calibration
+quality than Kev-0.8B on all three probability measures. The two flagship language
+models produced high action-level accuracy: Claude Opus 5 reached 99.12\% and
+GPT-5.6 Sol reached 98.32\%. Their clean question accuracies were 92.87\% and
+92.44\%, respectively.
+
+The locally served models produced lower question-level and FFD accuracy under the
+same output protocol. Their evaluated-record coverage was also lower: 775 records
+for Qwen3, 2,641 for Gemma3, and 557 for Llama3.2. Because failed records remain
+in the FFD denominator, the resulting scores combine successful action projection
+with output and serving reliability. This protocol exposes the operational cost of
+format failures alongside the decision accuracy.
+
+\subsubsection{General decision capability on JevBench}
+\label{sec:jevbench-results}
+
+The second experiment evaluates whether the specialized ship-design training
+retains general typed-decision capability. Kev-0.8B was evaluated on the public
+JevBench \textit{Original}, \textit{Easy}, and \textit{Hard} tiers using the
+upstream scorer and the public-only protocol. The three complete runs contained
+72, 48, and 111 tasks, respectively. All planned tasks produced valid probability
+distributions. The Original tier achieved 59 correct decisions out of 72, for an
+accuracy of 81.94\%, with a Brier score of 0.3489 and an expected calibration
+error of 0.1633. The Easy tier reached 100.00\% accuracy, whereas the Hard tier
+reached 36.94\% accuracy.
+
+Table~\ref{tab:jevbench-results} compares the matching tier accuracies and reported
+calibration metrics with the public reference values supplied for other typed
+decision systems. The public reference rows include additional task families that
+were not run in the present v046 evaluation; therefore only the three shared tier
+accuracies are used for the direct cross-model comparison. The Brier and expected
+calibration error values for Kev-0.8B are reported for its v046 Original tier,
+while the reference values retain their published aggregate definition.
+
+\begin{table*}[t]
+\caption{JevBench general decision evaluation. Accuracy values are percentages.
+The Kev-0.8B calibration values are from the v046 Original tier; reference-model
+calibration values are reproduced from the supplied public comparison table. A
+short dash indicates that the corresponding metric was unavailable under the
+present evaluation protocol.}
+\label{tab:jevbench-results}
+\centering
+\scriptsize
+\begin{tabular}{lrrrrr}
+\toprule
+Model & Easy & Original & Hard & Brier $\downarrow$ & ECE $\downarrow$ \\
+\midrule
+Jev                    & 100.00 & 98.61 & 72.07 & 0.358420 & 0.094685 \\
+Laya                   & 95.83  & 72.22 & 28.83 & 0.804244 & 0.246455 \\
+SemIf                  & 100.00 & 98.61 & 61.26 & 0.498012 & 0.112213 \\
+Kev-0.8B (this work)   & 100.00 & 81.94 & 36.94 & 0.348908 & 0.163324 \\
+JevK5                  & 100.00 & 97.22 & 73.87 & 0.366162 & 0.046672 \\
+Intern-Decision-0.8B   & 97.92  & 80.56 & 52.25 & 0.529519 & 0.065710 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The JevBench results show that the ship-specialized model retained high accuracy
+on straightforward typed decisions and achieved measurable performance on the
+original and hard tiers. Its strongest degradation occurred on the Hard tier,
+which contains more difficult decision structures and language conditions. The
+result complements the ship-design benchmark: the model specializes in ship-form
+decisions while preserving a common typed-decision interface that remains
+functional on an external decision benchmark.
 
 \subsection{End-to-End Ship Form Editing Evaluation}
 \label{sec:end-to-end}
