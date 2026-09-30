@@ -744,18 +744,165 @@ underlying decision tasks.
 \subsection{End-to-End Ship Form Editing Evaluation}
 \label{sec:end-to-end}
 
-\paragraph{Claim to test.}
-A correct typed decision should produce a valid and interpretable geometric edit
-when decoded by the NURBS/FFD executor.
+This section evaluates the complete natural-language-driven ship-form editing
+workflow and its computational time. The workflow receives a natural-language
+instruction, predicts typed deformation decisions, projects them into executable
+FFD actions, updates the NURBS waterline parameters, reconstructs the edited hull,
+and checks geometric validity and design constraints. The evaluation therefore
+connects decision accuracy with the resulting ship-form edit.
 
-\paragraph{Planned protocol.}
-Evaluate complete natural-language instruction to edited-hull trajectories,
-including single-turn, multi-region, repeated-turn, and reversal cases. Report
-instruction success, geometric validity, constraint satisfaction, displacement or
-principal-dimension changes, and human or expert agreement where available.
+\subsubsection{End-to-end ship-form editing}
+\label{sec:end-to-end-editing}
 
-\evidence{End-to-end execution runs, geometric metrics, representative hull
-figures, and the definition of the final acceptance criteria.}
+The end-to-end evaluation used the KVLCC2 hull and 300 sampled experiments from
+the ship-design dataset. The experiments were evenly divided among single edits,
+multi-region edits within one turn, and two consecutive edits applied to the same
+region. The 300 experiments contained 400 natural-language requests because each
+continuous two-turn experiment included two requests. The evaluation used
+qualitative magnitude requests, while requests requiring direct continuous
+magnitude or spatial-extent prediction were excluded from this interface.
+
+For each request, the model output was converted into an executable deformation
+action. The actions were applied in sequence to the current NURBS waterline state.
+The resulting waterlines were lofted into a hull mesh, after which the evaluator
+checked mesh validity, constraint satisfaction, action order, and qualitative
+magnitude levels. An experiment was counted as successful when the predicted
+trajectory matched the labelled action sequence and the reconstructed hull passed
+the geometric and constraint checks.
+
+Figures~\ref{fig:end2end-primary} and~\ref{fig:end2end-alternative} show two
+sets of representative edits. Each visualization places the natural-language
+instruction between the original and modified hulls and presents both plan and
+side views. The first set covers a single edit, a multi-action edit, and a
+continuous two-turn edit. The second set provides alternative examples from the
+same three interaction categories.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_single.png}
+        \caption{Single edit.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_multi_region_single_turn.png}
+        \caption{Multi-action edit.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_same_region_two_turns.png}
+        \caption{Continuous two-turn edit.}
+    \end{subfigure}
+    \caption{Representative end-to-end ship-form editing cases. Each panel
+    connects a natural-language instruction to the original and modified KVLCC2
+    hulls in plan and side views.}
+    \label{fig:end2end-primary}
+\end{figure*}
+
+Table~\ref{tab:end2end-results} summarizes the three interaction settings.
+All executed edits produced geometrically valid hulls, giving a 100\% geometry
+validity rate in every category. Single edits achieved a 100\% end-to-end
+success rate. Continuous two-turn edits achieved 98\%, with two constraint
+violations among the 43 constrained experiments. Multi-region single-turn edits
+achieved 60\% end-to-end success. Their execution and geometry checks reached
+100\%, while 39 of 45 constrained experiments violated a constraint and one
+experiment contained an action-sequence mismatch. This separation identifies the
+constraint-handling stage as the main source of unsuccessful multi-region
+trajectories in this evaluation.
+
+\begin{table*}[t]
+\caption{End-to-end editing results on the KVLCC2 hull. Magnitude-level accuracy
+is calculated over all labelled action levels. Constraint satisfaction is
+calculated over experiments containing at least one constraint.}
+\label{tab:end2end-results}
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrr}
+\toprule
+Interaction type & Experiments & End-to-end success & Trajectory exact & Geometry valid & Constraints satisfied & Level accuracy \\
+\midrule
+Single edit                 & 100 & 100.00\% & 100.00\% & 100.00\% & 100.00\% & 52.00\% \\
+Multi-region, single turn  & 100 & 60.00\%  & 96.00\%  & 100.00\% & 13.33\%  & 70.48\% \\
+Same-region, two turns     & 100 & 98.00\%  & 100.00\% & 100.00\% & 95.35\%  & 81.50\% \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+The result demonstrates that the complete pipeline can transform natural-language
+instructions into executable geometric edits and reconstruct valid hulls across
+all three interaction settings. The distinction between trajectory matching and
+end-to-end success is especially visible in multi-region editing, where the
+individual execution remained valid while constraint satisfaction reduced the
+number of accepted trajectories.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_single_alt.png}
+        \caption{Single edit.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_multi_region_single_turn_alt.png}
+        \caption{Multi-action edit.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_same_region_two_turns_alt.png}
+        \caption{Continuous two-turn edit.}
+    \end{subfigure}
+    \caption{Alternative representative end-to-end editing cases from the same
+    three interaction categories. The paired views show the original hull,
+    natural-language instruction, and reconstructed modified hull.}
+    \label{fig:end2end-alternative}
+\end{figure*}
+
+\subsubsection{Evaluation time}
+\label{sec:end-to-end-latency}
+
+The evaluation time was separated into model processing and geometric processing.
+For model processing, the table reports the complete wall-clock duration of each
+5,000-record evaluation divided by 5,000. This measure includes model loading,
+request scheduling, model calls, retry waits, result writing, and metric
+aggregation, and therefore describes the average evaluation time per requested
+record under the recorded execution conditions. It uses the same denominator for
+all compared models, including records that ended in failure.
+
+\begin{table*}[t]
+\caption{Average wall-clock time per requested record in the 5,000-record
+evaluation. The reported value is the complete job duration divided by 5,000;
+it includes model loading, scheduling, retries, output writing, and aggregation.}
+\label{tab:latency-results}
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+Model & Total evaluation time (s) & Average time per record (ms) \\
+\midrule
+Kev-0.8B             & 596.20   & 119.24 \\
+Kev-2B               & 786.71   & 157.34 \\
+Kev-4B               & 1879.13  & 375.83 \\
+JEV                  & 7724.64  & 1544.93 \\
+DeepSeek V4.1 Flash  & 5806.57  & 1161.32 \\
+Claude Opus 5        & 9824.20  & 1964.84 \\
+GPT-5.6 Sol           & 20034.72 & 4006.94 \\
+Qwen3                & 15820.21 & 3164.04 \\
+Gemma3               & 11530.18 & 2306.04 \\
+Llama3.2              & 14143.34 & 2828.67 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The geometric processing stage required approximately 0.13 s per end-to-end
+experiment on average. The category-specific means were 0.114 s for a single
+edit, 0.123 s for a multi-region single-turn edit, and 0.148 s for a same-region
+two-turn edit. Thus, after the decision stage, NURBS deformation, hull
+reconstruction, and geometric checks added a short and directly measurable
+processing stage to the complete design workflow.
 
 \subsection{Ablation Studies}
 \label{sec:ablations}
