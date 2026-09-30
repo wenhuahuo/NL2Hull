@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import statistics
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -53,8 +56,10 @@ def main() -> None:
         for record in records:
             target_actions = target_actions_from_kev(record)
             item = {"id": record["_meta"]["id"], "target_actions": target_actions}
+            started = time.perf_counter()
             try:
                 prediction = predictor(record)
+                item["call_latency_ms"] = 1000 * (time.perf_counter() - started)
                 item_rows = prediction_rows(record, prediction)
                 action_prediction = actions_from_kev(record, prediction["probabilities"])
                 item.update({
@@ -86,6 +91,30 @@ def main() -> None:
         "ffd_accuracy": aggregate_action_results(results),
         "failures": [item for item in results if item["status"] != "completed"],
     })
+    call_latencies = [
+        item["call_latency_ms"] for item in results if item["status"] == "completed"
+    ]
+    forward_latencies = [
+        item["prediction"]["latency_ms"]
+        for item in results
+        if item["status"] == "completed"
+    ]
+    if call_latencies:
+        report["latency_ms"] = {
+            "mean": statistics.fmean(call_latencies),
+            "median": statistics.median(call_latencies),
+            "p95": sorted(call_latencies)[
+                min(len(call_latencies) - 1, math.ceil(len(call_latencies) * 0.95) - 1)
+            ],
+        }
+    if forward_latencies:
+        report["forward_latency_ms"] = {
+            "mean": statistics.fmean(forward_latencies),
+            "median": statistics.median(forward_latencies),
+            "p95": sorted(forward_latencies)[
+                min(len(forward_latencies) - 1, math.ceil(len(forward_latencies) * 0.95) - 1)
+            ],
+        }
     write_json(args.output / "report.json", report)
     manifest.update({
         "status": "completed",
