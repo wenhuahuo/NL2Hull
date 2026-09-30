@@ -441,13 +441,13 @@ action-level FFD quality as separate measurements.
 \subsection{NURBS Representation and FFD Accuracy}
 \label{sec:nurbs-results}
 
-This section evaluates two geometric components of the framework. First, the
-non-uniform rational B-spline (NURBS) representation is assessed by reconstructing
-ship hulls from their extracted waterlines and longitudinal profiles. Second, the
-free-form deformation (FFD) operator is assessed through representative local,
-global, and shape-oriented edits applied to a fitted hull. The first experiment
-quantifies reconstruction error across a diverse hull set, while the second
-combines visual inspection with geometric validity and volume measurements.
+This section evaluates the ship-form representation and design workflow. First,
+the NURBS representation is assessed by reconstructing ship hulls from their
+extracted waterlines and longitudinal profiles. Second, the FFD operator is
+assessed through representative local, global, and shape-oriented edits applied
+to a fitted hull. The first experiment quantifies reconstruction error across a
+diverse hull set, while the second combines visual inspection with geometric
+validity and volume measurements.
 
 \subsubsection{NURBS-based hull reconstruction}
 \label{sec:nurbs-reconstruction-results}
@@ -598,7 +598,10 @@ geometric workflow from STL input to NURBS parameters, from control-point update
 to reconstructed hull surfaces, and from local or global FFD operations to
 geometric validity checks. The reconstruction errors quantify representation
 fidelity, while the FFD cases demonstrate the spatial selectivity and global
-scaling behaviour of the deformation operators.
+scaling behaviour of the deformation operators. These experiments demonstrate
+the feasibility of the ship-form representation and reconstruction pipeline,
+providing the geometric engine for subsequent natural-language-driven ship
+design.
 
 \subsection{Ship Design Decision Benchmark Evaluation}
 \label{sec:benchmark}
