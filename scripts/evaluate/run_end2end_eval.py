@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import time
@@ -102,7 +103,7 @@ def run_predict(args: argparse.Namespace) -> None:
             "explicit numeric requests are excluded: the decision interface does "
             "not predict continuous magnitudes or spatial extents"
         ),
-        "job_id": None,
+        "job_id": os.environ.get("SLURM_JOB_ID"),
         "status": "running",
     }
     _write_json(output / "run_manifest.json", manifest)
@@ -255,6 +256,13 @@ def run_execute(args: argparse.Namespace) -> None:
         for experiment in experiments:
             stream.write(json.dumps(experiment, ensure_ascii=False) + "\n")
     _write_json(output / "report.json", _aggregate(experiments))
+    manifest = json.loads((output / "run_manifest.json").read_text())
+    manifest.update({
+        "execute_job_id": os.environ.get("SLURM_JOB_ID"),
+        "executed_at": datetime.now(timezone.utc).isoformat(),
+        "experiments": len(experiments),
+    })
+    _write_json(output / "run_manifest.json", manifest)
     print(json.dumps(_aggregate(experiments), ensure_ascii=False, indent=2))
 
 

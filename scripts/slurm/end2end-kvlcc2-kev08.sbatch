@@ -20,7 +20,7 @@ KEV_ENV="${HOME}/.conda/envs/kev-v039"
 MESH_ENV="${HOME}/.conda/envs/mesh"
 DATA_FILE="${PROJECT_DIR}/datasets/kev_ship_dataset/train.jsonl"
 RUN_DIR="${PROJECT_DIR}/outputs/v042_kev0.8b_ship"
-HULL_STATE="${PROJECT_DIR}/datasets/v036_structured_action_dataset_30000/hull_states/KVLCC2.json"
+HULL_STATE="${PROJECT_DIR}/outputs/v036_structured_action_dataset_30000/hull_states/KVLCC2.json"
 OUTPUT_DIR="${PROJECT_DIR}/outputs/end2end_kvlcc2_kev08"
 EVAL_SCRIPT="${PROJECT_DIR}/scripts/evaluate/run_end2end_eval.py"
 PER_CATEGORY="${1:-100}"
@@ -53,13 +53,12 @@ PYTHONPATH="${PROJECT_DIR}/src:${KEV_SOURCE}" python -u "${EVAL_SCRIPT}" predict
 conda deactivate
 
 printf 'job=%s phase=execute start=%s\n' "${SLURM_JOB_ID}" "$(date -Is)"
-source "${MESH_ENV}/bin/activate"
-PYTHONPATH="${PROJECT_DIR}/src" python -u "${EVAL_SCRIPT}" execute \
+PYTHONPATH="${PROJECT_DIR}/src" "${MESH_ENV}/bin/python" -u "${EVAL_SCRIPT}" execute \
   --output "${OUTPUT_DIR}" \
   --hull-state "${HULL_STATE}"
 
 printf 'job=%s phase=visualize start=%s\n' "${SLURM_JOB_ID}" "$(date -Is)"
-PYTHONPATH="${PROJECT_DIR}:${PROJECT_DIR}/src" python -u -m visualization.end2end_test_vis.plot_end2end \
+PYTHONPATH="${PROJECT_DIR}:${PROJECT_DIR}/src" "${MESH_ENV}/bin/python" -u -m visualization.end2end_test_vis.plot_end2end \
   --results "${OUTPUT_DIR}"
 conda deactivate
 
