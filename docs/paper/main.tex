@@ -299,27 +299,111 @@ and the geometric action parameters specify its size, extent, and constraints.
 \subsection{Ship Design Decision Dataset and Benchmark}
 \label{sec:dataset-benchmark}
 
-\paragraph{Dataset construction.}
-Describe the programmatic generation of hull states and FFD actions, including
-single-action edits, multi-region edits, repeated same-region turns, explicit-range
-edits, natural-language paraphrases, and constraint annotations. State the split
-policy by hull family and the frozen test-set identifier and checksum.
+The dataset connects ship-form representations, executable free-form deformation
+(FFD) actions, and natural-language design requests. The construction process has
+four stages: collecting and standardizing ship forms, generating valid structured
+FFD actions, producing natural-language descriptions, and converting each
+description into a typed decision record for model training and evaluation.
 
-\paragraph{Benchmark protocol.}
-All compared models use the same frozen $5{,}000$-record test set, typed questions,
-probability JSON format, probability validation, and metric aggregation. The
-frozen set contains 43,496 expanded questions. Report question-level clean
-accuracy, negative log-likelihood, expected calibration error, and Brier score;
-report FFD action exact-match accuracy separately. Define the turn-level denominator
-as the number of requested records, including failed or invalid records.
+\paragraph{Ship-form sources.}
+The source collection contains twelve ship-form models. Eleven models were
+collected from the GrabCAD account of Abdelrahman Mamdouh
+(\url{https://grabcad.com/abdelrahman.mamdouh-7}), and the DTC model was included
+from the APPSolver shipBench source recorded in its metadata. The collection spans
+container ships, tanker and naval hulls, round-bilge hulls, a frigate, a work
+boat, and analytical or benchmark hull forms. The source models were converted to
+a common coordinate convention with the aft extremity at longitudinal coordinate
+zero, the bow at one, the baseline at vertical coordinate zero, and the centreline
+at transverse coordinate zero. This common convention supplies the geometric
+states used by the representation and action-generation procedures.
 
-\paragraph{Compared systems and reproducibility.}
-List the Kev-0.8B, Kev-2B, Kev-4B, native JEV, DeepSeek-Flash, Claude Opus 5,
-GPT-5.6 Sol, Qwen3, Gemma3, and Llama3.2 systems. State model identifiers,
-provider or local-serving mode, decoding/thinking setting, checkpoint information
-for local specialized models, and code/data revisions in the final manuscript.
+\paragraph{Structured FFD action dataset.}
+For each ship-form state, the generator samples executable FFD actions and applies
+them to the waterline representation. A candidate is retained after the edited
+waterlines produce a watertight solid with positive enclosed volume. Each retained
+record stores the ship-form identifier, the initial state, the ordered action
+specification, the interaction turns, and the geometric measurements after each
+turn. The action specification includes the edited region, operation, magnitude,
+spatial extents, symmetry, and optional geometric constraints.
 
-% -----------------------------------------------------------------------------
+The 30,000-record structured dataset contains four interaction groups. Single
+edits account for 9,000 records, multi-region edits performed in one turn account
+for 7,500 records, two-turn edits in one region account for 7,500 records, and
+explicit-magnitude edits with spatial ranges account for 6,000 records. The
+single-edit group samples one action from the available region and operation
+combinations. The multi-region group combines two or three regions in one turn.
+The two-turn group applies a second operation after the first operation at the
+same region; for directional operations, the second operation can use the
+opposite direction. The explicit group assigns a numerical magnitude and
+longitudinal and vertical ranges to the action. This construction supplies both
+single-step decisions and sequential editing contexts.
+
+\paragraph{Natural-language description generation.}
+Each structured turn is paired with four Chinese natural-language descriptions.
+The descriptions are generated from the structured action specification by seven
+language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7, DeepSeek-Flash,
+GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. The generation instruction requires the
+description to preserve the edited region, operation, relative magnitude, spatial
+range, and geometric constraints. It also requires explicit numerical values to
+be copied exactly when the action uses numerical parameters.
+
+Several controlled variations increase linguistic diversity. Equivalent actions
+receive multiple sentence forms, qualitative intensity expressions are generated
+for ordinal magnitudes, and explicit actions retain their numerical values and
+ranges. A deterministic subset receives a short ship-design or engineering
+scenario, while the remaining descriptions directly state the requested edit.
+The generation tasks are distributed across the seven models so that one model's
+wording does not determine the complete language distribution. Generated texts are
+checked for plain-language format, required numerical values, and prohibited
+exposure of internal magnitude labels.
+
+The source language checkpoint contains 149,998 descriptions. Cleaning removes
+conflicting duplicate-text groups and retains the split-priority order of test,
+validation, and training data. Rollback-oriented augmentations were generated
+alongside the other language variants; 8,076 records with invalid rollback labels
+were excluded during dataset preparation. The final dataset retains 134,558
+records, including 2,019 continuous multi-step records. Exact duplicate texts
+were removed across splits, with held-out splits receiving priority. The resulting
+training, validation, and test partitions contain 88,604, 22,758, and 23,196
+records, respectively.
+
+\paragraph{Typed decision records.}
+Every natural-language record is converted into a set of typed questions with
+labelled candidate answers. The first question selects whether the request
+contains one, two, or three actions. Each action position then receives questions
+for its region and operation, followed by questions for qualitative or explicit
+magnitude mode, ordinal magnitude, displacement preservation, and deck-line
+preservation. Categorical questions use named alternatives, ordinal questions use
+six ordered levels from no change to very large change, and Boolean questions use
+true or false alternatives. The original action order is retained in the question
+identifiers and in the labels.
+
+The final benchmark is frozen before model comparison. The test partition contains
+23,196 records and 201,774 expanded questions. A stratified procedure selects
+5,000 records by hull, description source, action count, and the presence of an
+explicit magnitude. The selected records contain 43,496 expanded questions and
+are stored with a fixed SHA-256 digest so that every model receives the same
+requests.
+
+\paragraph{Evaluation protocol and metrics.}
+All compared systems receive the same frozen records, typed questions, candidate
+sets, output format, probability validation, and metric aggregation procedure.
+For each question, the model returns a probability distribution over all listed
+answers. Question-level performance is measured by clean accuracy, negative
+log-likelihood, expected calibration error, and Brier score. These metrics use
+the expanded question set and retain the full probability distributions.
+
+The maximum-probability answers are also projected into an ordered sequence of
+region--operation pairs. Free-form deformation action accuracy is computed from
+three components: the selected number of actions, the region at each action
+position, and the operation at each action position. A record is counted as an
+exact action match when the number, order, regions, and operations all agree with
+the labelled sequence. The turn-level denominator contains all 5,000 requested
+records. Model-call failures, malformed responses, invalid probabilities, missing
+answers, and incompatible predicted action counts are counted as failed records
+in this denominator. This protocol reports probability-based decision quality and
+action-level FFD quality as separate measurements.
+
 \section{Results}
 \label{sec:results}
 
