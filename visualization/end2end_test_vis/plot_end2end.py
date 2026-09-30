@@ -65,6 +65,10 @@ PROMPT_TRANSLATIONS = {
         "Reduce the fullness of the deck substantially and symmetrically.",
     "基于KVLCC2母型船的方案优化，请在甲板区域略微再降低一些丰满度，保持左右对称。":
         "Then reduce the deck fullness slightly further, keeping the hull symmetric.",
+    "把艏部丰满度显著提上去，艉部外飘也做大幅增加，两处都保持左右对称。":
+        "Increase the bow fullness significantly and the stern flare substantially, keeping both edits symmetric.",
+    "艉部明显内收，同时把中体轻微下压。":
+        "Contract the stern noticeably inward and lower the midbody slightly.",
 }
 CJK_FONT_CANDIDATES = (
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -116,21 +120,40 @@ def _operation_groups(experiment: dict) -> set[str]:
     }
 
 
+def _constraint_free(experiment: dict) -> bool:
+    """Volume- or deck-preserving edits mute the visible change; prefer plain ones."""
+    return all(
+        not action["constraints"]
+        for turn in experiment["predicted_actions"]
+        for action in turn or []
+    )
+
+
 def select_representative(
-    experiments: list[dict], excluded_groups: frozenset[str] = frozenset()
+    experiments: list[dict],
+    excluded_groups: frozenset[str] = frozenset(),
+    prefer_unconstrained: bool = False,
+    within_groups: frozenset[str] | None = None,
 ) -> dict:
     """Pick the successful experiment with the largest control-point change.
 
     ``excluded_groups`` prefers experiments whose operation groups differ from
     an already selected figure, keeping a figure set visually diverse.
+    ``prefer_unconstrained`` prefers experiments without preservation
+    constraints, whose compensation scaling reduces the visible change.
+    ``within_groups`` restricts to experiments whose operations all belong to
+    the given groups; transverse edits are the most legible in the figures.
     """
     successful = [e for e in experiments if e["e2e_success"]]
     if not successful:
         raise RuntimeError("no successful experiment available for visualization")
-    preferred = [
-        e for e in successful if not (_operation_groups(e) & excluded_groups)
-    ]
-    pool = preferred or successful
+    pool = successful
+    if within_groups is not None:
+        pool = [e for e in pool if _operation_groups(e) <= within_groups] or pool
+    preferred = [e for e in pool if not (_operation_groups(e) & excluded_groups)]
+    pool = preferred or pool
+    if prefer_unconstrained:
+        pool = [e for e in pool if _constraint_free(e)] or pool
     return max(
         pool,
         key=lambda e: e["execution"]["max_control_displacement"],
@@ -233,7 +256,10 @@ def run(results: Path, output: Path | None = None) -> dict:
             continue
         first = select_representative(rows)
         second = select_representative(
-            rows, excluded_groups=frozenset(_operation_groups(first))
+            rows,
+            excluded_groups=frozenset(_operation_groups(first)),
+            prefer_unconstrained=True,
+            within_groups=frozenset({"transverse"}),
         )
         for suffix, chosen in (("", first), ("_alt", second)):
             mesh_path = results / "meshes" / f"{chosen['experiment_id']}.stl"
