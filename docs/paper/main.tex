@@ -912,20 +912,150 @@ benchmark. The reported change should be tied to one design choice at a time.
 
 \subsubsection{Sensitivity to NURBS Representation}
 \label{sec:ablation-nurbs}
-Compare control-point count, spline degree, waterline sampling, and representation
-variants while keeping the decision protocol fixed. Report both reconstruction
-quality and downstream action-to-geometry validity.
 
-\evidence{Representation variants and their measured effect.}
+This ablation isolates the effect of the center-plane profile representation on
+hull reconstruction. The full exploratory sequence from v012 to v020 contained
+several changes to profile extraction, control-point parameterization, endpoint
+handling, and hull closure. For a controlled comparison, we selected the five
+full 12-hull runs that share the same input hulls, 33 waterline levels, extracted
+profile samples, and mesh-comparison settings. The baseline used 24 control
+points per stem and stern contour with uniform clamped cubic-spline knots. The
+subsequent variants changed one representation feature at a time: 32 control
+points, a repeated knot at the stem deck corner, or locally concentrated knots
+around the bulb. The final combined variant used 32 control points together with
+both stem feature treatments.
+
+The evaluated profile curves describe the fore and aft center-plane contours.
+Accordingly, the primary metrics were the root-mean-square errors of the fitted
+stem and stern contours, calculated against their 80-point resampled reference
+contours. The recorded whole-surface nearest-neighbour RMSE and waterline-width
+RMSE were identical across the five runs. The results therefore use the contour
+errors to measure the part of the representation changed by this ablation, while
+retaining the whole-surface and waterline metrics as checks of the shared hull
+reconstruction setting.
+
+Table~\ref{tab:profile-ablation} reports both the KCS result and the arithmetic
+mean over all 12 hulls. Increasing the control count from 24 to 32 reduced the
+mean stem-contour RMSE from 0.001551 to 0.000909 and the mean stern-contour
+RMSE from 0.001236 to 0.000785. At KCS, the corresponding errors decreased from
+0.002326 to 0.001222 and from 0.001581 to 0.000818. The repeated deck knot and
+local bulb knots produced more localized changes: the deck-knot variant reduced
+the mean stem error to 0.000994, whereas the bulb-knot variant reduced it to
+0.001396. Neither variant changed the stern-contour mean relative to the
+24-control baseline.
+
+The combined representation produced the lowest stem-contour errors in both
+scopes, reaching 0.000343 for KCS and 0.000221 averaged over the 12 hulls. Its
+stern-contour errors matched the 32-control variant, at 0.000818 for KCS and
+0.000785 averaged over the hull set. Figure~\ref{fig:profile-ablation} shows the
+corresponding KCS contour reconstructions. The additional control points improve
+the distribution of the fitted curve along the bow contour, while the repeated
+deck knot and local bulb knots place fitting flexibility near the two geometric
+features identified during profile extraction.
+
+\begin{table*}[t]
+\caption{Ablation of the center-plane profile representation. Errors are
+normalized by the source-hull length. ``Mean'' is the arithmetic mean over the
+12 classic hulls.}
+\label{tab:profile-ablation}
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Representation & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
+\midrule
+24 controls, uniform knots
+    & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
+32 controls, uniform knots
+    & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
+24 controls, repeated deck knot
+    & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
+24 controls, local bulb knots
+    & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
+32 controls, deck and bulb features
+    & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.19\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v014_fixed_profile_parameters/hulls/KCS/profile_stem_stern.png}
+        \caption{24 controls.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.19\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v015_fixed_profile_32_controls/hulls/KCS/profile_stem_stern.png}
+        \caption{32 controls.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.19\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v016_fixed_profile_deck_corner_knot/hulls/KCS/profile_stem_stern.png}
+        \caption{Deck knot.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.19\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v017_fixed_profile_bulb_local_knots/hulls/KCS/profile_stem_stern.png}
+        \caption{Bulb knots.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.19\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/v018b_fixed_profile_combined_features/hulls/KCS/profile_stem_stern.png}
+        \caption{Combined.}
+    \end{subfigure}
+    \caption{KCS center-plane profile reconstruction for the five controlled
+    representation variants. Each panel compares the extracted stem and stern
+    contours with their fitted cubic-spline curves.}
+    \label{fig:profile-ablation}
+\end{figure*}
 
 \subsubsection{Effect of Kev Model Scale}
 \label{sec:ablation-scale}
-Compare Kev-0.8B, Kev-2B, and Kev-4B under identical data, prompts, evaluation
-code, and test records. Report clean accuracy, calibration, FFD exact match,
-coverage, and latency.
 
-\evidence{Final scale-comparison analysis, including uncertainty or repeated-run
-statistics if available.}
+We next evaluated the effect of model scale while keeping the data, probability
+questions, inference protocol, action projection, and frozen 5,000-record test
+set fixed. The comparison used Kev models with 0.8 billion, 2 billion, and
+4 billion parameters. Question accuracy was computed over the successfully
+scored probability questions, and FFD exact rate was computed over all requested
+turns, including failed evaluations. Negative log-likelihood, expected
+calibration error, and Brier score measure probability quality and calibration.
+
+Table~\ref{tab:scale-ablation} shows that the three models produced closely
+clustered results on this test set. Kev-2B achieved the highest question
+accuracy at 95.9192\%, the highest FFD exact rate was obtained by Kev-0.8B at
+99.32\%, and Kev-2B gave the lowest negative log-likelihood, expected
+calibration error, and Brier score. Kev-4B completed 4,999 of the 5,000
+requested records and had one failed turn; its question accuracy and FFD exact
+rate were 95.8794\% and 99.24\%, respectively. Across the three scales, the
+question-accuracy range was 0.0400 percentage points and the FFD exact-rate
+range was 0.08 percentage points.
+
+These results establish the scale comparison used by the subsequent analysis:
+model size changed the computational cost substantially, while the measured
+decision and calibration metrics remained within a narrow range for the three
+trained checkpoints.
+
+\begin{table*}[t]
+\caption{Kev model-scale ablation on the frozen 5,000-record test set. Question
+accuracy uses the successfully scored questions. FFD exact rate uses all
+requested turns. Best values in each column are bold.}
+\label{tab:scale-ablation}
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & Completed records & Question accuracy & FFD exact rate & Negative log-likelihood & Expected calibration error & Brier score \\
+\midrule
+Kev-0.8B & 5,000 & 95.8962\% & \textbf{99.32\%} & 0.0951 & 0.0032 & 0.0551 \\
+Kev-2B   & 5,000 & \textbf{95.9192\%} & 99.30\% & \textbf{0.0948} & \textbf{0.0022} & \textbf{0.0548} \\
+Kev-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
 
 \subsubsection{Effect of Training Data Size}
 \label{sec:ablation-data}
