@@ -217,36 +217,84 @@ differences of the longitudinal and transverse control-point coordinates.
 \subsection{Decision Framework for Natural-Language-Driven Ship Design}
 \label{sec:decision-framework}
 
-\paragraph{Problem interface.}
-Define the input as a current hull state together with a natural-language design
-intent, and the output as one or more typed deformation actions. Explain how the
-intent is represented in the benchmark request and how the state is updated after
-sequential turns.
+We formulate natural-language-driven ship-form editing as a discrete decision
+task. A design request is decomposed into the number of deformation actions and
+the region and operation associated with each action. A natural-language decision
+model assigns probabilities to predefined alternatives, and the highest-probability
+answers define an ordered sequence of region--operation pairs. These decisions
+use the same region and operation vocabulary as the control-point deformation
+rules in Section~\ref{sec:nurbs-ffd}.
 
-\paragraph{Typed decision layer.}
-Describe the three question families used by the framework: \textit{choice} for
-categorical selections, \textit{score} for ordinal levels, and \textit{noul} for
-Boolean constraints. For a record with questions $q_1,\ldots,q_K$, the model
-outputs distributions
-\[
- p(y_k\mid s,q_k), \qquad k=1,\ldots,K,
-\]
-where $s$ is the current state. Explain that the benchmark retains the complete
-probability distributions for accuracy, negative log-likelihood, expected
-calibration error, and Brier score.
+\paragraph{Decision representation.}
+The model receives the natural-language request together with typed questions.
+Each question specifies an instruction and a set of candidate answers. The
+number of actions is selected from one, two, and three. For each available action
+position, a region question selects among the bow, stern, bulb, midbody, deck,
+bilge, and complete hull. An operation question selects among transverse,
+vertical, or longitudinal movement; increased or decreased fullness; increased
+flare; bulb-length modification; and increased or decreased global length or
+breadth. Position-indexed questions preserve the order of the actions in a
+multi-operation request.
 
-\paragraph{Action projection and execution.}
-The argmax answer for each typed question is projected into the canonical action
-format
-\begin{verbatim}
-{"actions":[{"region":"bow","operation":"outward"}]}
-\end{verbatim}
-The projected actions are then passed to the NURBS/FFD executor. Invalid
-probabilities, missing answers, incompatible action counts, failed calls, and
-invalid action projections are recorded as failures and included in the relevant
-denominators. This section should include a framework diagram showing the flow
-from natural-language intent to typed decisions, action projection, NURBS update,
-and geometric validation.
+Additional questions characterize the requested magnitude and constraints.
+A categorical question distinguishes qualitative intensity from explicit
+numerical magnitude or spatial extent. An ordinal question selects among six
+levels, from no change to very large change, using the magnitude scale in
+Section~\ref{sec:nurbs-ffd}. For requests expressed with explicit numerical
+values, the ordinal question uses the no-change entry by convention. Two Boolean
+questions identify requests to preserve displacement and the deck line. These
+questions associate the additional design requirements with their corresponding
+action positions.
+
+\paragraph{Probability-based decision making.}
+We use Kev as the specialized natural-language decision model. Its decision
+interface returns a probability distribution over the candidate answers for each
+question. Let $t$ denote the request text, $q_j$ the $j$th question, and
+$\mathcal{Y}_j$ its candidate set. The distribution is written as
+\begin{equation}
+ p_{\theta}(y\mid t,q_j),
+ \qquad y\in\mathcal{Y}_j,
+ \label{eq:decision-distribution}
+\end{equation}
+where $\theta$ denotes the model parameters. Categorical and ordinal questions
+use distributions over their listed alternatives, while Boolean questions use
+false and true as the two alternatives. The interface retains probabilities for
+all candidates, and the selected answer is
+\begin{equation}
+ \hat{y}_j=\underset{y\in\mathcal{Y}_j}{\operatorname{arg\,max}}
+          \ p_{\theta}(y\mid t,q_j).
+ \label{eq:decision-selection}
+\end{equation}
+This interface also supports comparison with native decision services and
+language models prompted to return the same candidate probability distributions.
+
+\paragraph{Ordered action projection.}
+The selected action count determines how many region--operation pairs are
+included in the decision output. If $\hat{k}$ is the selected count, and
+$\hat{r}_i$ and $\hat{o}_i$ are the selected region and operation at position $i$,
+the projected action sequence is
+\begin{equation}
+ \hat{\mathcal{A}}=
+ \bigl((\hat{r}_1,\hat{o}_1),\ldots,
+       (\hat{r}_{\hat{k}},\hat{o}_{\hat{k}})\bigr).
+ \label{eq:action-projection}
+\end{equation}
+The projection checks that the request contains region and operation questions
+for every selected action position. A count exceeding the available positions
+is recorded as an invalid projection. The resulting ordered pairs provide a
+common representation of the model's deformation decisions.
+
+\paragraph{Correspondence with geometric operations.}
+The region decision identifies the spatial support of an edit, and the operation
+decision selects the corresponding control-point update rule in
+Section~\ref{sec:nurbs-ffd}. For example, a bow expansion decision corresponds to
+a transverse increase over the bow extent, while a global length-increase
+decision corresponds to longitudinal scaling about the hull centre. The geometric
+executor takes a region and operation together with a magnitude, optional
+longitudinal and vertical extents, and constraint settings. It applies these
+complete action specifications sequentially to the waterline control points.
+Thus, the decision vocabulary specifies the location and type of ship-form edit,
+and the geometric action parameters specify its size, extent, and constraints.
 
 \subsection{Ship Design Decision Dataset and Benchmark}
 \label{sec:dataset-benchmark}
