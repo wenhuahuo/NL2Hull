@@ -19,7 +19,7 @@ import numpy as np
 import trimesh
 from matplotlib import font_manager
 
-from visualization.reconstruction.plotting import _gray_mesh
+from visualization.reconstruction.plotting import _colored_mesh, _gray_mesh
 
 CATEGORY_TITLES = {
     "single": "Single edit",
@@ -28,11 +28,14 @@ CATEGORY_TITLES = {
 }
 CJK_FONT_CANDIDATES = (
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/Hiragino Sans GB.ttc",
 )
 PROMPT_LIMIT = 42
 PROMPT_WRAP = 14
-VERTICAL_OPERATIONS = {"upward", "downward"}
+VIEWS = (
+    (0, 1, 2, "y / L", "plan view"),
+    (0, 2, 1, "z / L", "side view"),
+)
 
 
 def _cjk_font() -> font_manager.FontProperties:
@@ -57,14 +60,6 @@ def _prompt_text(prompts: list[str]) -> str:
     return "\n".join(lines)
 
 
-def _view(experiment: dict) -> str:
-    for turn in experiment["predicted_actions"]:
-        for action in turn or []:
-            if action["operation"] in VERTICAL_OPERATIONS:
-                return "side"
-    return "plan"
-
-
 def select_representative(experiments: list[dict]) -> dict:
     """Pick the successful experiment with the largest control-point change."""
     successful = [e for e in experiments if e["e2e_success"]]
@@ -76,46 +71,65 @@ def select_representative(experiments: list[dict]) -> dict:
     )
 
 
+def _sections(mesh: trimesh.Trimesh, origin, normal) -> list[np.ndarray]:
+    """Return the polylines of one planar mesh section."""
+    path = mesh.section(plane_origin=origin, plane_normal=normal)
+    if path is None:
+        return []
+    return [np.asarray(points) for points in path.discrete]
+
+
+def _overlay_original_sections(
+    ax, original: trimesh.Trimesh, view: str, *, levels: int = 6
+) -> None:
+    """Draw thin original-hull section lines over a deformed-hull panel."""
+    z_min, z_max = original.bounds[:, 2]
+    if view == "plan":
+        for z in np.linspace(z_min, z_max, levels + 2)[1:-1]:
+            for points in _sections(original, [0.0, 0.0, z], [0.0, 0.0, 1.0]):
+                ax.plot(points[:, 0], points[:, 1], color="tab:red", lw=0.8, alpha=0.85)
+    else:
+        for points in _sections(original, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]):
+            ax.plot(points[:, 0], points[:, 2], color="tab:red", lw=0.9, alpha=0.9)
+
+
 def plot_triptych(
     original: trimesh.Trimesh,
     deformed: trimesh.Trimesh,
     prompts: list[str],
-    view: str,
     title: str,
     output_path: Path,
 ) -> None:
+    """Render original/deformed hulls in plan and side views around a prompt arrow."""
     cjk = _cjk_font()
     bounds = np.vstack((original.bounds, deformed.bounds))
-    axis_a, axis_b, view_axis = (0, 1, 2) if view == "plan" else (0, 2, 1)
-    ylabel = "y / L" if view == "plan" else "z / L"
-    limits = []
-    for axis in (axis_a, axis_b):
-        lower, upper = float(bounds[:, axis].min()), float(bounds[:, axis].max())
-        pad = max((upper - lower) * 0.04, 1e-4)
-        limits.append((lower - pad, upper + pad))
 
-    fig = plt.figure(figsize=(13, 4.0), constrained_layout=True)
-    grid = fig.add_gridspec(1, 3, width_ratios=[2.0, 1.2, 2.0])
-    ax_original = fig.add_subplot(grid[0, 0])
-    ax_arrow = fig.add_subplot(grid[0, 1])
-    ax_deformed = fig.add_subplot(grid[0, 2])
+    fig = plt.figure(figsize=(13, 6.6), constrained_layout=True)
+    grid = fig.add_gridspec(2, 3, width_ratios=[2.0, 1.2, 2.0])
+    for row, (axis_a, axis_b, view_axis, ylabel, view_name) in enumerate(VIEWS):
+        limits = []
+        for axis in (axis_a, axis_b):
+            lower = float(bounds[:, axis].min())
+            upper = float(bounds[:, axis].max())
+            pad = max((upper - lower) * 0.04, 1e-4)
+            limits.append((lower - pad, upper + pad))
+        ax_original = fig.add_subplot(grid[row, 0])
+        ax_deformed = fig.add_subplot(grid[row, 2])
+        _gray_mesh(ax_original, original, axis_a, axis_b, view_axis)
+        ax_original.set_title(f"Original hull — {view_name}")
+        _colored_mesh(ax_deformed, deformed, axis_a, axis_b, view_axis, "tab:blue", 0.55)
+        _overlay_original_sections(ax_deformed, original, "plan" if view_name == "plan view" else "side")
+        ax_deformed.set_title(f"Modified vs original — {view_name}")
+        for ax in (ax_original, ax_deformed):
+            ax.set_xlabel("x / L")
+            ax.set_ylabel(ylabel)
+            ax.set_xlim(*limits[0])
+            ax.set_ylim(*limits[1])
+            ax.set_aspect("equal")
+            ax.grid(alpha=0.15)
 
-    for ax, mesh, name in (
-        (ax_original, original, "Original hull"),
-        (ax_deformed, deformed, "Modified hull"),
-    ):
-        _gray_mesh(ax, mesh, axis_a, axis_b, view_axis)
-        ax.set_title(name)
-        ax.set_xlabel("x / L")
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(*limits[0])
-        ax.set_ylim(*limits[1])
-        ax.set_aspect("equal")
-        ax.grid(alpha=0.15)
-
+    ax_arrow = fig.add_subplot(grid[:, 1])
     ax_arrow.axis("off")
-    ax_arrow.set_xlim(0, 1)
-    ax_arrow.set_ylim(0, 1)
     ax_arrow.annotate(
         "",
         xy=(0.95, 0.35),
@@ -160,7 +174,6 @@ def run(results: Path, output: Path | None = None) -> dict:
             original,
             deformed,
             chosen["prompts"],
-            _view(chosen),
             f"{title} — KVLCC2, Kev-0.8B",
             figure,
         )
