@@ -12,6 +12,7 @@
 \usepackage{subcaption}
 \usepackage{xcolor}
 \usepackage{amssymb}
+\usepackage{CJKutf8}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\evidence}[1]{\textcolor{blue}{[Evidence needed: #1]}}
@@ -318,7 +319,7 @@ associate the additional design requirements with their corresponding action
 positions.
 
 \paragraph{Decision model Chip.}
-Chip is the ship-design decision model used by NL2Hull Framework. It adapts the
+Chip is the ship design decision model used by NL2Hull Framework. It adapts the
 Kev decision interface for natural-language ship-form editing and returns a
 probability distribution over the candidate answers for each typed question
 \footnote{\url{https://github.com/jaredpalmer/kev}}. The model receives a
@@ -353,7 +354,8 @@ candidate,
  \label{eq:decision-selection}
 \end{equation}
 The full distributions are retained for calibration and likelihood metrics, and
-the selected answers are passed to the ordered action projection. This interface
+the selected answers are passed to the ordered action projection. Chip is trained
+with the configuration summarized in Appendix~\ref{app:training}. This interface
 also supports comparison with native decision services and language models
 prompted to return the same candidate probability distributions.
 
@@ -443,10 +445,12 @@ combined edits, sequential refinement, and numerically specified requests.
 \paragraph{Natural-language description generation.}
 Each FFD operation record provides the basis for generating Chinese
 natural-language design requests. Its structured action specification is given
-to one of seven language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7,
+through the Pi Agent interface\footnote{\url{https://pi.dev}} to one of seven
+language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7,
 DeepSeek-V4.1-Flash, GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. Four alternative
 descriptions are requested for each editing step, including both steps in a
-two-step record. The generation instruction requires these descriptions to
+two-step record. The generation prompt is provided in Appendix~\ref{app:description-prompt}.
+The generation instruction requires these descriptions to
 preserve the edited region, operation, relative magnitude, spatial range, and
 geometric constraints. For numerically specified requests, the numerical values
 must be reproduced exactly.
@@ -679,20 +683,52 @@ design.
 \subsubsection{Performance on SDDBench}
 \label{sec:ship-decision-results}
 
-To evaluate model performance in ship-design decision making, all systems were
-tested on SDDBench, which contains 5,000 records and 43,496 expanded typed
-questions. The comparison includes Chip as the ship-design-adapted model developed in
-this work, the native JEV decision model, three flagship language models, and
-three locally served small language models.
+To evaluate model performance in ship design decision making, all models were
+tested on SDDBench. The comparison includes Chip, the native JEV decision model,
+three flagship language models, and three locally served small language models.
+Chip and JEV expose typed decision interfaces directly. For the general language
+models, we used prompt-constrained adaptation: each model received the record
+state, typed questions, candidate keys, and a strict JavaScript Object Notation
+(JSON) output schema, and was
+instructed to return a probability distribution for every question. The resulting
+responses were parsed and validated before the common action projection and
+metric aggregation. The general language models were invoked through Pi
+Agent\footnote{\url{https://pi.dev}} in non-interactive mode, with agent tools
+and persistent sessions disabled. The prompt is given in
+Appendix~\ref{app:benchmark-prompt}.
 
 Question-level metrics are computed over successfully evaluated questions. For
-each question, the model produces a probability distribution over the labelled
-candidate answers. The question accuracy measures the fraction of questions
-whose most probable answer is correct. NLL, ECE, and Brier score use the complete
-returned distributions. FFD exact match is computed after projecting the most
-probable typed answers into an ordered
-sequence of region--operation pairs. Its denominator contains all 5,000 requested
-records, including failed calls, malformed outputs, invalid probability
+each question $i$, the model produces a probability distribution $p_i(c)$ over
+the labelled candidate answers $c\in\mathcal{Y}_i$, with true answer $y_i$.
+The question accuracy measures the fraction of questions whose most probable
+answer is correct. NLL is
+\begin{equation}
+\mathrm{NLL}=-\frac{1}{N}\sum_{i=1}^{N}\log p_i(y_i),
+\label{eq:nll}
+\end{equation}
+where $N$ is the number of successfully evaluated questions. For multiclass
+candidate distributions, the Brier score is
+\begin{equation}
+\mathrm{Brier}=\frac{1}{N}\sum_{i=1}^{N}\sum_{c\in\mathcal{Y}_i}
+\left[p_i(c)-\mathbb{1}(c=y_i)\right]^2.
+\label{eq:brier}
+\end{equation}
+To calculate ECE, the questions are grouped into
+confidence bins $B_m$ using $\hat{p}_i=\max_c p_i(c)$. With
+$\mathrm{acc}(B_m)$ denoting the fraction of correct argmax predictions and
+$\mathrm{conf}(B_m)$ the mean confidence in bin $m$,
+\begin{equation}
+\mathrm{ECE}=\sum_{m=1}^{M}\frac{|B_m|}{N}
+\left|\mathrm{acc}(B_m)-\mathrm{conf}(B_m)\right|.
+\label{eq:ece}
+\end{equation}
+Here $\mathbb{1}$ denotes the indicator function, and $M=10$ equal-width
+confidence bins are used; empty bins contribute zero to ECE. The Brier score
+uses one-hot targets for every question type, including discrete magnitude
+levels. FFD exact match is computed after projecting the most probable typed
+answers into an
+ordered sequence of region--operation pairs. Its denominator contains all 5,000
+requested records, including failed calls, malformed outputs, invalid probability
 structures, and incompatible predicted action counts. Table~\ref{tab:benchmark-outline}
 summarizes the comparison.
 
@@ -750,8 +786,7 @@ responses for all 5,000 records. Incompatible predicted action counts were also
 counted as FFD projection failures. Because FFD exact match retains every
 requested record in its denominator, these results jointly
 measure decision quality and the reliability of producing a valid typed response
-under the evaluation interface. The comparison shows that parameter scale alone
-does not reproduce the reliability of task-specific Chip training.
+under the evaluation interface.
 
 \subsubsection{General decision capability on JevBench}
 \label{sec:jevbench-results}
@@ -773,7 +808,7 @@ respectively. These results show that Chip remains operational on external typed
 clear performance gradient.
 
 Table~\ref{tab:jevbench-results} presents the three tier accuracies alongside
-public reference results for other typed-decision systems.
+public reference results for other typed-decision models.
 
 \begin{table*}[t]
 \caption{General typed-decision evaluation on JevBench. Accuracy values are
@@ -931,16 +966,13 @@ number of accepted trajectories.
 \subsubsection{Evaluation time}
 \label{sec:end-to-end-latency}
 
-Model and geometric processing were measured separately. For model processing,
-we used the per-request latency recorded by each evaluator rather than dividing
-whole-job wall-clock time by the number of records. The reported mean and
+We also evaluated the time required by each model to perform the ship design
+decision task. Model and geometric processing were measured separately. For model processing,
+we used the per-request latency recorded by each evaluator. The reported mean and
 95th-percentile values include the model request and the evaluator-side response
 handling; model initialization, result aggregation, and geometric processing are
-excluded. The API evaluators recorded latency for both successful and failed
-attempts, whereas the JEV output provided latency for its 4,322 completed
-requests. Table~\ref{tab:latency-results} follows the model grouping used in
-Table~\ref{tab:benchmark-outline} and places Chip at the end of the
-language-decision group.
+excluded. The LLM evaluators recorded latency for both successful and failed
+attempts.
 
 \begin{table*}[t]
 \caption{Per-request model latency on SDDBench. Mean and
@@ -977,9 +1009,8 @@ language-decision model, while the flagship and small language models required
 longer per-request processing under the evaluated settings. The geometric
 processing stage added approximately 0.13 s per end-to-end experiment on
 average: 0.114 s for a single edit, 0.123 s for a multi-region single-turn edit,
-and 0.148 s for a same-region two-turn edit. These measurements separate the
-model decision time from the subsequent NURBS deformation, hull reconstruction,
-and geometric checks.
+and 0.148 s for a same-region two-turn edit. These measurements show that Chip
+generates ship design decisions at very low latency under the evaluated settings.
 
 \subsection{Ablation Studies}
 \label{sec:ablations}
@@ -1112,13 +1143,11 @@ Chip-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 To assess the contribution of the training-set size, we held the Chip
 architecture fixed and varied the amount of ship-design training data. Nested
 subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the SDD Dataset training
-partition were sampled using a fixed random seed. Each smaller subset was contained
-in every larger subset. Each model was independently initialized from the same
-published Kev-0.8B checkpoint and trained for two epochs, with rank-16 low-rank
-adaptation, a peak learning rate of $2\times10^{-5}$, and an effective batch size
-of eight records. The full-data model used the same initialization and training
-configuration. With the epoch count fixed, the number of optimizer updates
-increased from 222 at 1\% to 22,152 at 100\%. Kev-Base supplied the 0\% reference before ship-design adaptation.
+partition were sampled using a fixed random seed. Each smaller subset was contained in every larger subset. The training
+configuration was identical to the main Chip experiment except for the amount of
+training data. With the epoch count fixed, the number of optimizer updates
+increased from 222 at 1\% to 22,152 at 100\%. Kev-Base supplied the 0\% reference
+before ship-design adaptation.
 
 All seven checkpoints were evaluated on SDDBench using the probability-question
 and FFD action-scoring protocol described in
@@ -1215,8 +1244,8 @@ would align execution with the end-to-end criterion.
 \label{sec:llm-failures}
 SDDBench places two coupled requirements on a language model: it must infer
 the ship-form action and serialize a complete typed probability response. The
-evaluator first receives the model response, parses JavaScript Object Notation
-(JSON), checks the required probability keys and value ranges, verifies that each
+evaluator first receives the model response, parses JSON, checks the required
+probability keys and value ranges, verifies that each
 distribution sums to one, and then projects the valid response into an ordered
 action sequence. A response can therefore fail after generation during parsing,
 probability-schema validation, or action projection.
@@ -1311,6 +1340,191 @@ NL2Hull Framework from validated typed edits toward broader ship-form design
 workflows.
 
 % -----------------------------------------------------------------------------
+\clearpage
+\onecolumn
+\appendix
+
+\section{Prompt templates}
+\label{app:prompts}
+
+The templates below reproduce the instructions used for general-language-model
+evaluation and description generation. Both were submitted in Chinese through
+Pi Agent. Braced fields are replaced with the current request, typed questions,
+or structured actions; line breaks are adjusted for typesetting.
+
+\subsection{SDDBench probability-output prompt}
+\label{app:benchmark-prompt}
+
+Each question block supplies its identifier, type, instruction, and all candidate
+keys with their descriptions. The block format is
+\begin{verbatim}
+Question ID: {question identifier}
+Type: {choice, noul, or score}
+Instruction: {question instruction}
+Options (keys must be preserved exactly):
+- {candidate key}: {candidate description}
+\end{verbatim}
+Here choice denotes named categorical alternatives, noul denotes a Boolean
+question, and score denotes an ordinal-level question. The question blocks are
+inserted into the following prompt:
+
+\begingroup
+\small
+\begin{CJK}{UTF8}{gbsn}
+\begin{verbatim}
+你是一个船舶设计决策模型。请根据状态和问题，输出每个问题的概率分布。
+
+状态：
+{record state}
+
+问题：
+{one question block per typed question}
+
+只输出严格 JSON，不要 Markdown、解释或额外文字：
+{"answers": {
+  "question_id": {"probabilities": {"option_key": 0.5}}
+}}
+
+要求：
+- 必须回答全部问题，question ID 必须完全匹配。
+- 每个 probabilities 的 key 必须完全匹配该问题列出的 key。
+- 概率为 0 到 1 之间的数字，并且每个问题的概率和为 1。
+- choice 使用选项名称作为 key；noul 必须使用 false 和 true；score 使用 0、1、2 等字符串作为 key。
+- 只能返回上述 JSON 对象。
+\end{verbatim}
+\end{CJK}
+\endgroup
+
+\clearpage
+\subsection{Natural-language description-generation prompt}
+\label{app:description-prompt}
+
+The template is applied once per turn and language variant. The structured-action
+field contains every action requested in the current turn, in execution order.
+
+\begingroup
+\small
+\begin{CJK}{UTF8}{gbsn}
+\begin{verbatim}
+你正在为船型变形数据集生成一条中文用户输入描述。
+{previous-turn context, if present}
+{single-action or multi-action instruction}
+{background instruction}
+这是同一结构化动作的第 {variant number} 种自然表达，请使用与其他表达不同但准确的句式。可以改变句子结构、动词、
+程度副词和衔接方式，不要把某个变化等级固定翻译成唯一词语；所有表达仍需保持相同的相对变化大小。
+
+必须遵守：
+1. 只返回一条自然、简洁的中文用户句子，不要返回 JSON、解释、标题、项目符号或引号。
+2. 保留动作的区域、操作、相对变形大小和约束含义，不得增加输入 JSON 中没有的工程目标。
+3. 对有内部强度编码的动作，只使用自然的模糊表达。可以在“略微、轻微、稍稍、稍微、小幅、适度、适当、较为、进一步、
+明显、较大、显著、大幅、充分”等表达中灵活选择，也可以调整语序和动词；禁止在输出中出现内部编码、数字强度、幅度、
+等级、级别、强度或档位等词语。表达的强弱必须与输入动作保持一致。
+4. 如果 magnitude_level 为 null，必须准确表达 magnitude_value、longitudinal_extent 和 vertical_extent 中的数值；
+逐字符复制每个小数，不得四舍五入、截断或改写；这种情况下可以使用“变形量”或“数值”。
+5. constraints 中的 preserve_displacement、preserve_deck_line 等约束必须在句子中体现。
+6. 不要引入米、毫米等物理单位；当前数据中的数值使用归一化参数。
+7. 区域术语固定为：bow=艏部，stern=艉部，bulb=球鼻艏，midbody=中体，deck=甲板，bilge=舭部，global=全船。
+8. 方向术语固定为：forward=向艏移动，aftward=向艉移动，upward=上抬，downward=下压，outward=外扩，inward=内收。
+9. 操作术语固定为：increase_fullness=增加丰满度，decrease_fullness=降低丰满度，increase_flare=增加外飘，
+increase_length=增加全船长度，decrease_length=缩短全船长度，increase_breadth=增加全船宽度，
+decrease_breadth=减小全船宽度。
+10. change_bulb_length 表示“按给定数值改变球鼻艏长度”，magnitude_value 是改变量，不能描述成最终长度。
+
+船型：{hull identifier}
+交互类型：{interaction type}
+当前动作 JSON：
+{structured actions}
+\end{verbatim}
+\end{CJK}
+\endgroup
+\begin{CJK}{UTF8}{gbsn}
+
+For a single action, the action instruction is ``请只表达当前动作。'' For several
+actions, it is ``一次输入中包含多个部位的修改，请在一句话中完整表达所有动作。''
+A later turn includes the following context, followed by the previous actions:
+\end{CJK}
+\begingroup
+\small
+\begin{CJK}{UTF8}{gbsn}
+\begin{verbatim}
+这是同一部位连续编辑的后续输入。前一轮动作如下，当前描述只表达本轮动作，可以使用‘再’等衔接词：
+{previous structured actions}
+\end{verbatim}
+\end{CJK}
+\endgroup
+
+The background instruction either requests a direct edit without background or
+introduces one of four scenario openings. It also instructs the model to retain
+the structured action targets. The scenario openings are
+\begingroup
+\small
+\begin{CJK}{UTF8}{gbsn}
+\begin{verbatim}
+我正在进行船舶设计，当前使用的母型船是{hull identifier}，我需要
+你是一名船舶设计专家，现在请
+我正在进行 AI4CFD 研究，需要生成一些船型数据，请
+基于{hull identifier}母型船的方案优化，请
+\end{verbatim}
+\end{CJK}
+\endgroup
+
+If validation fails, a subsequent attempt appends the following instruction to
+the original prompt:
+\begingroup
+\small
+\begin{CJK}{UTF8}{gbsn}
+\begin{verbatim}
+上一条回答未通过格式或语义校验。请重新生成，只返回一条符合全部要求的中文用户句子。不要使用‘幅度、等级、级别、
+强度、档位’这些词，也不要解释校验过程。
+\end{verbatim}
+\end{CJK}
+\endgroup
+
+\clearpage
+\section{Chip training configuration}
+\label{app:training}
+
+Chip was initialized from the published Kev-0.8B decision checkpoint, whose
+language backbone is Qwen3.5-0.8B-Base. Ship-design adaptation used all 88,604
+records in the SDD Dataset training partition, two epochs, rank-16 low-rank
+adaptation, and a learning rate of $2\times10^{-5}$. A microbatch of two records
+with four gradient-accumulation steps gave an effective batch size of eight.
+Weights and computation used 16-bit brain floating point (bfloat16), with gradient
+checkpointing enabled, on an NVIDIA RTX A6000 graphics processor.
+
+Table~\ref{tab:chip-training-config} lists the initialization and batch settings
+for the model-scale experiment. Chip-2B used a decision checkpoint trained on the
+original Kev decision dataset; this preliminary training used two epochs, a
+learning rate of $5\times10^{-5}$, rank-16 low-rank adaptation, and the same
+effective batch size of eight. Chip-4B used the cached Kev-4B decision checkpoint.
+All three variants then used the same SDD Dataset training partition and
+ship-design adaptation settings described above, with the batch and accumulation
+settings shown in the table.
+
+\begin{center}
+\refstepcounter{table}\label{tab:chip-training-config}
+\textbf{Table~\thetable.} Variant-specific initialization and batch settings for
+ship-design adaptation. The batch size is the number of records per microbatch;
+accumulation is the number of gradient-accumulation steps.\par\medskip
+\small
+\begin{tabular}{lp{0.23\textwidth}p{0.35\textwidth}rr}
+\toprule
+Model & Language backbone & Decision initialization & Batch size & Accumulation \\
+\midrule
+Chip & Qwen3.5-0.8B-Base & Published Kev-0.8B & 2 & 4 \\
+Chip-2B & Qwen3.5-2B-Base & Kev-2B trained on the original decision dataset & 2 & 4 \\
+Chip-4B & Qwen3.5-4B-Base & Cached Kev-4B & 1 & 8 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For the training-data-size experiment, every adapted checkpoint was independently
+initialized from the same published Kev-0.8B checkpoint and used the main Chip
+training settings. Nested subsets were sampled with random seed 0 at training
+shares of 1\%, 2\%, 4\%, 8\%, 25\%, and 100\%, corresponding to 886, 1,772,
+3,544, 7,088, 22,151, and 88,604 records. The unchanged published Kev-0.8B
+checkpoint, denoted Kev-Base, supplied the 0\% reference.
+
 \bibliographystyle{cas-model2-names}
 \bibliography{references}
 
