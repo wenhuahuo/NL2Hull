@@ -56,7 +56,7 @@ HULLS = [
     },
     {
         "id": "npl_round_bilge_full_scale",
-        "label": "NPL Round Bilge\n(full-scale source geometry)",
+        "label": "NPL Round Bilge",
         "source": "npl_round_bilge_full_scale/NPL Round BilGe Full Scale.stl",
     },
     {
@@ -82,8 +82,70 @@ HULLS = [
 ]
 
 
+def read_generation_reference_surface(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Build a compact surface from the reviewed section reference for S-175.
+
+    The S-175 source STL contains several shells and aggressive triangle
+    decimation collapsed its longitudinal extent. The repository's reviewed VTP
+    reference contains ordered 32-point sections, so it is used to reconstruct
+    a stable overview surface for this figure only.
+    """
+    reader = vtk.vtkXMLPolyDataReader()
+    reader.SetFileName(str(path))
+    reader.Update()
+    poly = reader.GetOutput()
+    part_array = poly.GetCellData().GetArray("part_id")
+    kind_array = poly.GetCellData().GetArray("curve_kind")
+    station_array = poly.GetCellData().GetArray("station_fraction")
+
+    sections: dict[int, list[tuple[float, np.ndarray]]] = {}
+    for cell_id in range(poly.GetNumberOfCells()):
+        if int(kind_array.GetTuple1(cell_id)) != 0:
+            continue
+        part = int(part_array.GetTuple1(cell_id))
+        station = float(station_array.GetTuple1(cell_id))
+        cell = poly.GetCell(cell_id)
+        points = np.asarray(
+            [poly.GetPoint(cell.GetPointIds().GetId(j)) for j in range(cell.GetNumberOfPoints())],
+            dtype=float,
+        )
+        sections.setdefault(part, []).append((station, points))
+
+    vertices: list[np.ndarray] = []
+    faces: list[tuple[int, int, int]] = []
+    for part_sections in sections.values():
+        part_sections.sort(key=lambda item: item[0])
+        if len(part_sections) < 2:
+            continue
+        n_points = len(part_sections[0][1])
+        for station, points in part_sections:
+            if len(points) != n_points:
+                raise ValueError(f"inconsistent section size at station {station}")
+
+        for sign in (1.0, -1.0):
+            offset = len(vertices)
+            for _, points in part_sections:
+                mirrored = points.copy()
+                mirrored[:, 1] *= sign
+                vertices.extend(mirrored)
+            for section_index in range(len(part_sections) - 1):
+                start = offset + section_index * n_points
+                next_start = start + n_points
+                for point_index in range(n_points - 1):
+                    a = start + point_index
+                    b = start + point_index + 1
+                    c = next_start + point_index
+                    d = next_start + point_index + 1
+                    faces.extend(((a, c, b), (b, c, d)))
+
+    return np.asarray(vertices, dtype=float), np.asarray(faces, dtype=np.int64)
+
+
 def read_decimated_stl(path: Path, target_faces: int = 4500) -> tuple[np.ndarray, np.ndarray]:
     """Read an STL and return vertices and triangular faces after decimation."""
+    if path.name == "s-175-u-water.stl":
+        return read_generation_reference_surface(path.parent / "generation_reference.vtp")
+
     reader = vtk.vtkSTLReader()
     reader.SetFileName(str(path))
     reader.Update()
@@ -146,8 +208,8 @@ def projected_polygons(
 
     order = np.argsort(depth)
     projected = projected[order]
-    # Keep the hull neutral and use illumination only to reveal curvature.
-    values = 0.50 + 0.34 * illumination[order]
+    # Use a bright neutral gray and use illumination only to reveal curvature.
+    values = 0.68 + 0.25 * illumination[order]
     return [polygon for polygon in projected], values, order
 
 
@@ -157,11 +219,11 @@ def draw_view(ax, vertices: np.ndarray, faces: np.ndarray, view: str) -> None:
     collection = PolyCollection(
         polygons,
         facecolors=colors,
-        edgecolors=(0.27, 0.30, 0.33, 0.28),
-        linewidths=0.12,
+        edgecolors="none",
+        linewidths=0.0,
         antialiased=True,
         closed=True,
-        rasterized=False,
+        rasterized=True,
     )
     ax.add_collection(collection)
 
@@ -183,14 +245,16 @@ def draw_view(ax, vertices: np.ndarray, faces: np.ndarray, view: str) -> None:
     ax.set_aspect("equal", adjustable="box")
     ax.set_axis_off()
     ax.text(
-        0.02,
-        0.90,
+        0.98,
+        0.97,
         "side" if view == "side" else "front",
         transform=ax.transAxes,
         fontsize=5.5,
-        color="#4c5660",
-        ha="left",
+        color="#3f4850",
+        ha="right",
         va="top",
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 0.8},
+        zorder=10,
     )
 
 
@@ -247,15 +311,6 @@ def build_figure(repo_root: Path, target_faces: int = 4500) -> plt.Figure:
         front_ax = fig.add_subplot(cell[1])
         draw_view(front_ax, vertices, faces, "front")
 
-    fig.text(
-        0.5,
-        0.012,
-        "Orthographic views of the original meshes; each hull is normalized to unit length while preserving its geometric aspect ratio.",
-        ha="center",
-        va="bottom",
-        fontsize=6,
-        color="#4c5660",
-    )
     return fig
 
 

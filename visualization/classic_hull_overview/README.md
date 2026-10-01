@@ -14,7 +14,7 @@ The displayed names follow the local manifest and external terminology review:
 - Container ship hull — descriptive label for a generic GrabCAD asset
 - Frigate hull — descriptive label; the local `firgate` directory is a source-name spelling error
 - NPL Round Bilge 4a — 4a variant from the NPL round-bilge series
-- NPL Round Bilge (full-scale source geometry) — source-labeled full-scale geometry
+- NPL Round Bilge — companion source geometry
 - S-175 container ship — ITTC benchmark hull
 - Series 60 hull — Series 60 methodical-series hull
 - Wigley hull — Wigley mathematical benchmark hull
@@ -45,4 +45,8 @@ python visualization/classic_hull_overview/plot_classic_hull_overview.py
 
 The script exports SVG, PDF, PNG, and TIFF files in this directory. VTK is used
 for STL reading and mesh decimation, while matplotlib performs all figure
-rendering and export.
+rendering and export. The S-175 source STL is a multi-shell model; aggressive
+triangle decimation collapsed its longitudinal extent. For the overview tile,
+the script therefore uses the reviewed `generation_reference.vtp` sections to
+build a compact surface, preserving the recorded unit-length geometry and
+avoiding the failed decimation result.
