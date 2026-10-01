@@ -163,6 +163,22 @@ The study makes four contributions:
     editing with Chip.
 \end{enumerate}
 
+Figure~\ref{fig:nl2hull-framework} summarizes the NL2Hull pipeline, the SDD
+Dataset and SDDBench construction, Chip's typed decision interface, and the
+CFFD Engine stages.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{pics/framework/nl2hull_framework.png}
+    \caption{Overview of the NL2Hull framework and its ship-form editing workflow.
+    (a) Natural-language requests are converted by Chip into ordered actions and
+    applied by the CFFD Engine to a KCS benchmark hull. (b) SDD Dataset and
+    SDDBench construction. (c) Typed decision questions and candidate
+    probabilities in Chip. (d) NURBS representation, control-point deformation,
+    hull reconstruction, and geometric checks.}
+    \label{fig:nl2hull-framework}
+\end{figure*}
+
 % -----------------------------------------------------------------------------
 \section{Methods}
 \label{sec:methods}
