@@ -10,6 +10,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+plt.rcParams.update({"font.family": "Times New Roman"})
 import trimesh
 from matplotlib.collections import PolyCollection
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -64,7 +66,8 @@ def _control_points(waterlines) -> np.ndarray:
 
 
 def _render(mesh: trimesh.Trimesh, output: Path, *, waterlines=None, highlight: bool = False,
-            operation: bool = False, parameters: bool = False, edited: bool = False) -> None:
+            operation: bool = False, parameters: bool = False, edited: bool = False,
+            front_only: bool = False) -> None:
     vertices, faces = _mesh_for_plot(mesh)
     fig = plt.figure(figsize=(5.6, 2.9), dpi=180)
     ax = fig.add_subplot(111, projection="3d")
@@ -76,7 +79,7 @@ def _render(mesh: trimesh.Trimesh, output: Path, *, waterlines=None, highlight: 
         alpha=0.18,
     )
     ax.add_collection3d(poly)
-    ax.set_xlim(-0.03, 1.05)
+    ax.set_xlim(1.05, 0.58 if front_only else -0.03)
     ax.set_ylim(-0.24, 0.24)
     ax.set_zlim(-0.02, 0.25)
     ax.set_box_aspect((1.0, 0.38, 0.25))
@@ -161,6 +164,56 @@ def _render_nurbs_profiles(hull, reconstructed, profile, output: Path) -> None:
     plt.close(fig)
 
 
+def _render_d1_panels(hull, reconstructed, output_dir: Path) -> None:
+    """Write four equal-height panels for the CFFD representation row."""
+    vertices, faces = _mesh_for_plot(reconstructed)
+    triangles = vertices[faces][:, :, [0, 2]]
+    fig, ax = plt.subplots(figsize=(2.4, 0.9), dpi=180)
+    ax.add_collection(PolyCollection(triangles, facecolors="none", edgecolors=BLUE, linewidths=0.16, alpha=0.75))
+    ax.set_xlim(1.03, -0.03)
+    ax.set_ylim(-0.01, 0.22)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.subplots_adjust(0, 0, 1, 1)
+    fig.savefig(output_dir / "kcs_d1_hull.png", transparent=True, pad_inches=0)
+    plt.close(fig)
+
+    for x, name in ((0.88, "bow"), (0.50, "midship"), (0.12, "stern")):
+        values = _section(hull.mesh, x)
+        fig, ax = plt.subplots(figsize=(0.95, 0.9), dpi=180)
+        if values is not None:
+            ax.plot(values[:, 0] * 1.5, values[:, 1] * 2.3, color=BLUE, linewidth=0.8)
+            selected = values[::max(1, len(values) // 8)]
+            ax.scatter(selected[:, 0] * 1.5, selected[:, 1] * 2.3, s=5, color=BLUE)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        fig.subplots_adjust(0, 0, 1, 1)
+        fig.savefig(output_dir / f"kcs_d1_{name}_profile.png", transparent=True, pad_inches=0)
+        plt.close(fig)
+
+
+def _render_collection(dataset_dir: Path, output: Path) -> None:
+    """Render a contact sheet from the twelve source hulls in the dataset."""
+    hull_dirs = sorted(path for path in dataset_dir.iterdir() if (path / "metadata.yaml").exists())
+    if len(hull_dirs) < 12:
+        raise ValueError(f"expected at least 12 source hulls, found {len(hull_dirs)}")
+    fig = plt.figure(figsize=(10.0, 1.7), dpi=180)
+    for index, hull_dir in enumerate(hull_dirs[:12]):
+        hull = load_hull(hull_dir)
+        vertices, faces = _mesh_for_plot(hull.mesh)
+        ax = fig.add_subplot(2, 6, index + 1, projection="3d")
+        ax.add_collection3d(Poly3DCollection(vertices[faces], facecolors=LIGHT_BLUE, edgecolors=BLUE, linewidths=0.18, alpha=0.22))
+        ax.set_xlim(1.05, -0.03)
+        ax.set_ylim(-0.24, 0.24)
+        ax.set_zlim(-0.02, 0.25)
+        ax.set_box_aspect((1.0, 0.38, 0.25))
+        ax.view_init(elev=18, azim=-116)
+        ax.set_axis_off()
+    fig.subplots_adjust(0, 0, 1, 1, wspace=0.02, hspace=0.02)
+    fig.savefig(output, transparent=True, pad_inches=0)
+    plt.close(fig)
+
+
 def _make_meshes(dataset_dir: Path):
     hull = load_hull(dataset_dir / "KCS")
     profile = fit_profile(hull)
@@ -178,12 +231,13 @@ def generate(dataset_dir: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     hull, profile, waterlines, reconstructed, edited = _make_meshes(dataset_dir)
     _render(reconstructed, output_dir / "kcs_engine.png", waterlines=waterlines, highlight=True)
-    _render(reconstructed, output_dir / "kcs_region.png", waterlines=waterlines, highlight=True)
-    _render(reconstructed, output_dir / "kcs_operation.png", waterlines=waterlines, highlight=True, operation=True)
-    _render(reconstructed, output_dir / "kcs_parameters.png", waterlines=waterlines, parameters=True)
+    _render(reconstructed, output_dir / "kcs_region.png", waterlines=waterlines, highlight=True, front_only=True)
+    _render(reconstructed, output_dir / "kcs_operation.png", waterlines=waterlines, highlight=True, operation=True, front_only=True)
+    _render(reconstructed, output_dir / "kcs_parameters.png", waterlines=waterlines, parameters=True, front_only=True)
     _render(edited, output_dir / "kcs_edited_hull.png", edited=True)
     _render(reconstructed, output_dir / "kcs_wireframe.png", waterlines=waterlines)
-    _render_nurbs_profiles(hull, reconstructed, profile, output_dir / "kcs_nurbs_profiles.png")
+    _render_d1_panels(hull, reconstructed, output_dir)
+    _render_collection(dataset_dir, output_dir / "ship_collection.png")
 
 
 def main() -> None:

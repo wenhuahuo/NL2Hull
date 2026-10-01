@@ -43,7 +43,7 @@ def _geometry(cell: Element, x: float, y: float, width: float, height: float, *,
 
 
 def rect(root: Element, cell_id: str, x: float, y: float, width: float, height: float, fill: str, stroke: str, *, rounded: bool = True, value: str = "", font_size: int = 14, bold: bool = False, align: str = "center", valign: str = "middle", stroke_width: int = 1) -> str:
-    style = f"rounded={'1' if rounded else '0'};whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};strokeWidth={stroke_width};fontColor={DARK};fontSize={font_size};align={align};verticalAlign={valign};"
+    style = f"rounded={'1' if rounded else '0'};whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};strokeWidth={stroke_width};fontColor={DARK};fontSize={font_size};fontFamily=Times New Roman;align={align};verticalAlign={valign};"
     if bold:
         style += "fontStyle=1;"
     cell = _cell(root, cell_id, value if "<" in value else escape(value, quote=True), style)
@@ -52,7 +52,7 @@ def rect(root: Element, cell_id: str, x: float, y: float, width: float, height: 
 
 
 def text(root: Element, cell_id: str, x: float, y: float, width: float, height: float, value: str, *, color: str = DARK, size: int = 14, bold: bool = False, align: str = "center", valign: str = "middle", font_style: int = 0) -> str:
-    style = f"text;html=1;strokeColor=none;fillColor=none;fontColor={color};fontSize={size};align={align};verticalAlign={valign};whiteSpace=wrap;"
+    style = f"text;html=1;strokeColor=none;fillColor=none;fontColor={color};fontSize={size};fontFamily=Times New Roman;align={align};verticalAlign={valign};whiteSpace=wrap;"
     if bold:
         style += "fontStyle=1;"
     if font_style:
@@ -110,11 +110,15 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
         "region": _data_uri(asset_dir / "kcs_region.png", "image/png"),
         "operation": _data_uri(asset_dir / "kcs_operation.png", "image/png"),
         "parameters": _data_uri(asset_dir / "kcs_parameters.png", "image/png"),
-        "profiles": _data_uri(asset_dir / "kcs_nurbs_profiles.png", "image/png"),
+        "collection": _data_uri(asset_dir / "ship_collection.png", "image/png"),
+        "d1_hull": _data_uri(asset_dir / "kcs_d1_hull.png", "image/png"),
+        "d1_bow": _data_uri(asset_dir / "kcs_d1_bow_profile.png", "image/png"),
+        "d1_midship": _data_uri(asset_dir / "kcs_d1_midship_profile.png", "image/png"),
+        "d1_stern": _data_uri(asset_dir / "kcs_d1_stern_profile.png", "image/png"),
     }
 
     # Figure canvas and (a) title strip.
-    rect(root, new(), 3, 3, 1666, 336, "#ffffff", "#334155", rounded=False, stroke_width=1)
+    rect(root, new(), 3, 3, 1666, 280, "#ffffff", "#334155", rounded=False, stroke_width=1)
     rect(root, new(), 3, 3, 1666, 50, "#f3f7fb", "#334155", rounded=False, value="(a) NL2Hull Framework", font_size=25, bold=True, align="left")
 
     natural = rect(root, new(), 20, 75, 340, 184, "#fff3e7", "#f4c08b", value="", rounded=True)
@@ -168,8 +172,7 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
     text(root, new(), 20, 398, 310, 28, "1.  Ship-form collection", color="#9f3024", size=17, bold=True, align="left")
     text(root, new(), 342, 398, 192, 28, "12 source hulls", size=13, align="right")
     rect(root, new(), 20, 431, 520, 86, "#ffffff", "#f1e1d2", rounded=True)
-    for i in range(10):
-        image(root, new(), 32 + (i % 5) * 96, 441 + (i // 5) * 35, 82, 29, uri["hull"])
+    image(root, new(), 30, 437, 500, 74, uri["collection"])
     text(root, new(), 497, 463, 30, 32, "⋯", size=22)
 
     text(root, new(), 20, 528, 310, 28, "2.  Structured FFD actions", color="#9f3024", size=17, bold=True, align="left")
@@ -236,10 +239,17 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
     rows = [(398, "1", "NURBS waterlines + profiles"), (549, "2", "Control-point deformation"), (700, "3", "Hull reconstruction"), (851, "4", "Checks")]
     for yy, number, label in rows:
         rect(root, new(), 1125, yy, 531, 138 if number != "4" else 75, "#ffffff", "#cce3f6", rounded=True)
-        rect(root, new(), 1134, yy + 10, 38, 38, "#4d9bd8", "#4d9bd8", rounded=True, value=number, font_size=18, bold=True)
+        text(root, new(), 1134, yy + 10, 38, 28, f"{number}.", color="#9f3024", size=17, bold=True, align="left")
         text(root, new(), 1182, yy + 10, 330, 28, label, size=14, bold=True, align="left")
 
-    image(root, new(), 1188, 426, 450, 100, uri["profiles"])
+    text(root, new(), 1185, 436, 190, 14, "KCS hull + NURBS waterlines", size=7)
+    text(root, new(), 1384, 436, 78, 14, "Bow profile", size=7)
+    text(root, new(), 1470, 436, 78, 14, "Midship profile", size=7)
+    text(root, new(), 1556, 436, 78, 14, "Stern profile", size=7)
+    image(root, new(), 1185, 452, 190, 62, uri["d1_hull"])
+    image(root, new(), 1384, 452, 78, 62, uri["d1_bow"])
+    image(root, new(), 1470, 452, 78, 62, uri["d1_midship"])
+    image(root, new(), 1556, 452, 78, 62, uri["d1_stern"])
 
     image(root, new(), 1190, 590, 430, 90, uri["operation"])
     image(root, new(), 1190, 741, 430, 90, uri["hull"])
@@ -250,7 +260,14 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
     # A small legend note makes the real model provenance explicit without changing the visual layout.
     text(root, new(), 1200, 824, 400, 16, "KCS benchmark hull; highlighted box denotes the bulb region", color="#53718b", size=8, align="center")
 
-    graph = Element("mxGraphModel", {"dx": "1672", "dy": "941", "grid": "1", "gridSize": "10", "page": "0", "pageWidth": "1672", "pageHeight": "941", "background": "#ffffff"})
+    # Remove the unused white band below (a) while preserving the original panel geometry.
+    for geometry in root.iter("mxGeometry"):
+        y_value = geometry.get("y")
+        if y_value is not None and float(y_value) >= 341.0:
+            shifted = float(y_value) - 56.0
+            geometry.set("y", str(int(shifted) if shifted.is_integer() else shifted))
+
+    graph = Element("mxGraphModel", {"dx": "1672", "dy": "885", "grid": "1", "gridSize": "10", "page": "0", "pageWidth": "1672", "pageHeight": "885", "background": "#ffffff"})
     graph.append(root)
     diagram = Element("diagram", {"name": "NL2Hull Framework"})
     diagram.append(graph)
