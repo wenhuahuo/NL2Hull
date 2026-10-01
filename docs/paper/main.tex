@@ -128,9 +128,8 @@ understanding, typed action selection, and geometric execution are evaluated as
 linked stages.
 
 To connect design intent with executable ship-form edits, we propose the
-Natural-Language-to-Hull Framework (NL2Hull Framework). At its core is Chip, a
-ship-design decision model developed by adapting Kev-0.8B to natural-language
-editing requests. Chip serves as the decision layer between the designer's
+Natural-Language-to-Hull Framework (NL2Hull Framework). At its core is Chip, a ship-design decision model for
+natural-language editing requests. Chip serves as the decision layer between the designer's
 language and the geometric operations. This role is motivated by the structure
 of ship-form editing: designers often express changes qualitatively, while each
 edit requires a choice of region, operation, magnitude level, and preservation
@@ -150,13 +149,13 @@ The study makes four contributions:
 \begin{enumerate}
     \item We define a NURBS-based decision task for translating
     natural-language ship-form intent into interpretable FFD actions.
-    \item We propose Chip, a ship-design-adapted decision model that converts
+    \item We propose Chip, a ship design decision model that converts
     natural-language requests into ordered discrete editing decisions and
     predicts probabilities for action choices, qualitative magnitude levels,
     and preservation constraints.
-    \item We implement NL2Hull Framework with the CFFD Engine to connect Chip's
-    decisions to sequential deformation, hull reconstruction, and geometric
-    constraint checks.
+    \item We implement NL2Hull Framework with the CFFD Engine. It connects
+    Chip's decisions to sequential deformation, hull reconstruction, and
+    geometric constraint checks.
     \item We construct the Ship Design Decision Dataset (SDD Dataset) and its
     Ship Design Decision Benchmark (SDDBench), with a common evaluation protocol
     for question accuracy, probability quality, FFD exact match, and latency
@@ -168,9 +167,9 @@ The study makes four contributions:
 \section{Methods}
 \label{sec:methods}
 
-This section defines the CFFD Engine, the NL2Hull Framework decision interface,
-and the SDD Dataset and SDDBench evaluation protocol. The central design choice
-is to use the model as a typed decision layer rather than asking it to emit
+This section defines the CFFD Engine, the NL2Hull Framework decision interface powered by Chip,
+and the SDD Dataset and SDDBench. The central design choice
+is to use Chip as a typed decision layer rather than asking it to emit
 unrestricted NURBS control-point coordinates.
 
 \subsection{CFFD Engine: NURBS-Based Ship Representation and FFD}
@@ -211,13 +210,13 @@ Reflection of the half-waterline across the centreline then defines the complete
 symmetric section.
 
 \paragraph{Longitudinal profile representation.}
-The waterline curves are complemented by fore and aft longitudinal profiles,
-which describe the hull contours in the longitudinal--vertical plane over the
-normalized ranges $[0.65,1]$ and $[0,0.35]$, respectively. Each profile uses a
-cubic, clamped curve with 32 control points and unit weights, following the
-rational curve expression in Eq.~\ref{eq:waterline-nurbs} with the summation
-extended to all 32 controls. The deck and lower hull portions within each
-profile share one curve representation.
+To describe the bow and stern contours more faithfully, the waterline curves are
+complemented by fore and aft longitudinal profiles in the longitudinal--vertical
+plane. These profiles cover the normalized ranges $[0.65,1]$ and $[0,0.35]$,
+respectively. Each profile uses a cubic, clamped curve with 32 control points and
+unit weights, following the rational curve expression in
+Eq.~\ref{eq:waterline-nurbs} with the summation extended to all 32 controls. The
+deck and lower hull portions within each profile share one curve representation.
 
 To preserve local geometric detail in the fore region, its knot vector uses eight
 locally concentrated interior knots around the bulb-related parameter and a knot
@@ -318,59 +317,69 @@ requests to preserve displacement and the deck line. Together, these questions
 associate the additional design requirements with their corresponding action
 positions.
 
-\paragraph{Probability-based decision making.}
-We use the published Kev model family as the foundation for natural-language
-decision making in this framework\footnote{\url{https://github.com/jaredpalmer/kev}}.
-The adapted checkpoints use the Chip names defined in the Introduction, and the
-unadapted published checkpoint used as the 0\% reference is Kev-Base. The Kev
-decision interface returns a probability distribution over the candidate answers
-for each question. Let $t$ denote the request text, $q_j$ the $j$th question, and
-$\mathcal{Y}_j$ its candidate set. The distribution is written as
+\paragraph{Decision model Chip.}
+Chip is the ship-design decision model used by NL2Hull Framework. It adapts the
+Kev decision interface for natural-language ship-form editing and returns a
+probability distribution over the candidate answers for each typed question
+\footnote{\url{https://github.com/jaredpalmer/kev}}. The model receives a
+natural-language request together with a question and its candidate answers; the
+geometric state is supplied separately to the CFFD Engine during execution.
+
+Let $t$ denote the request text, $q_j$ the $j$th typed question, and
+$\mathcal{Y}_j$ its candidate set. At the interface level, Chip first maps the
+request and question context to a decision representation,
 \begin{equation}
- p_{\theta}(y\mid t,q_j),
+ \mathbf{h}_j=f_{\theta}(t,q_j),
+ \qquad
+ \mathbf{s}_j=g_{\theta}(\mathbf{h}_j,\mathcal{Y}_j),
+ \label{eq:chip-interface}
+\end{equation}
+where $f_{\theta}$ denotes language processing and $g_{\theta}$ assigns one
+score to each candidate answer. The scores are converted into a probability
+distribution by
+\begin{equation}
+ p_{\theta}(y\mid t,q_j,\mathcal{Y}_j)
+ =\frac{\exp(s_{j,y})}{\sum_{y'\in\mathcal{Y}_j}\exp(s_{j,y'})},
  \qquad y\in\mathcal{Y}_j,
  \label{eq:decision-distribution}
 \end{equation}
-where $\theta$ denotes the model parameters. Categorical and discrete FFD-level questions use distributions over their listed
-alternatives, while Boolean questions use false and true as the two alternatives.
-The interface retains probabilities for all candidates, and the selected answer is
+where $s_{j,y}$ is the score of candidate $y$. Categorical, discrete FFD-level,
+and Boolean questions therefore share the same probability interface while using
+their respective candidate sets. The selected answer is the maximum-probability
+candidate,
 \begin{equation}
  \hat{y}_j=\underset{y\in\mathcal{Y}_j}{\operatorname{arg\,max}}
-          \ p_{\theta}(y\mid t,q_j).
+          \ p_{\theta}(y\mid t,q_j,\mathcal{Y}_j).
  \label{eq:decision-selection}
 \end{equation}
-This interface also supports comparison with native decision services and
-language models prompted to return the same candidate probability distributions.
+The full distributions are retained for calibration and likelihood metrics, and
+the selected answers are passed to the ordered action projection. This interface
+also supports comparison with native decision services and language models
+prompted to return the same candidate probability distributions.
 
-\paragraph{Ordered action projection.}
+\paragraph{Action projection and geometric correspondence.}
 After the individual decisions have been made, the selected action count
 determines how many region--operation pairs are included in the decision output.
-If $\hat{k}$ is the selected count, and
-$\hat{r}_i$ and $\hat{o}_i$ are the selected region and operation at position $i$,
-the projected action sequence is
+If $\hat{k}$ is the selected count, and $\hat{r}_i$ and $\hat{o}_i$ are the
+selected region and operation at position $i$, the projected action sequence is
 \begin{equation}
  \hat{\mathcal{A}}=
  \bigl((\hat{r}_1,\hat{o}_1),\ldots,
        (\hat{r}_{\hat{k}},\hat{o}_{\hat{k}})\bigr).
  \label{eq:action-projection}
 \end{equation}
-The projection first checks that the request contains region and operation
-questions for every selected action position. A count exceeding the available
-positions is recorded as an invalid projection. The resulting ordered pairs then
-provide a common representation of the model's deformation decisions.
-
-\paragraph{Correspondence with geometric operations.}
-The projected region identifies the spatial support of an edit, while the
-projected operation selects the corresponding control-point update rule in
-Section~\ref{sec:nurbs-ffd}. For example, a bow expansion decision corresponds
-to a transverse increase over the bow extent, while a global length-increase
-decision corresponds to longitudinal scaling about the hull centre. The geometric
-executor then combines the region and operation with a magnitude, optional
-longitudinal and vertical extents, and constraint settings before applying the
-complete action specification sequentially to the waterline control points.
-In this way, the decision vocabulary specifies the location and type of ship-form
-edit, and the geometric action parameters specify its size, extent, and
-constraints.
+The projection checks that region and operation questions are available for every
+selected action position; a count exceeding the available positions is recorded
+as an invalid projection. Each projected region identifies the spatial support of
+an edit, while its operation selects the corresponding control-point update rule
+in Section~\ref{sec:nurbs-ffd}. For example, a bow expansion corresponds to a
+transverse increase over the bow extent, whereas a global length increase
+corresponds to longitudinal scaling about the hull centre. The CFFD Engine then
+combines each region--operation pair with its magnitude, optional longitudinal
+and vertical extents, and constraint settings before applying the complete action
+sequence to the waterline control points. Thus, the projection preserves the
+ordered discrete decisions made by Chip while the CFFD Engine supplies their
+geometric realization.
 
 \subsection{SDD Dataset and SDDBench}
 \label{sec:dataset-benchmark}
@@ -384,7 +393,7 @@ typed decision record for model training and evaluation.
 \paragraph{Ship-form sources.}
 The source collection contains twelve ship-form models. Eleven models were
 collected from GrabCAD\footnote{\url{https://grabcad.com/abdelrahman.mamdouh-7}},
-and the DTC model was obtained from the official OpenFOAM~7 tutorial
+and the DTC model was obtained from the official OpenFOAM tutorial
 resources\footnote{\url{https://github.com/OpenFOAM/OpenFOAM-7/blob/master/tutorials/resources/geometry/DTC-scaled.stl.gz}}.
 The collection includes tankers, container ships, and other hull types, as shown
 in Fig.~\ref{fig:source-hulls}. To use these models within a common design
@@ -407,18 +416,18 @@ hull, and a work boat.}
 \end{figure*}
 
 \paragraph{Structured FFD action dataset.}
-For each ship-form state, the generator samples executable FFD actions and applies
-them to the waterline representation. A candidate is retained after the edited
-waterlines produce a watertight solid with positive enclosed volume. Each retained
-record stores the ship-form identifier, the initial state, the ordered action
+According to the deformation rules in Section~\ref{sec:nurbs-ffd}, we randomly
+sample regions and operations supported by FFD and apply each sampled action to
+the waterline representation. A candidate is retained after the edited waterlines
+produce a watertight solid with positive enclosed volume. Each retained record
+stores the ship-form identifier, the initial state, the ordered action
 specification, the interaction turns, and the geometric measurements after each
 turn. The action specification includes the edited region, operation, magnitude,
 spatial extents, symmetry, and optional geometric constraints.
 
-Using this procedure, the structured action generator sampled 30,000 FFD
-operation records. These records form the action source for the SDD Dataset and
-cover four design scenarios that capture both simple edits and more involved
-requests. Single-edit records describe one local or
+This procedure produced 30,000 FFD operation records. These records form the
+action source for the SDD Dataset and cover four design scenarios that capture
+both simple edits and more involved requests. Single-edit records describe one local or
 global modification and account for 9,000 records. To capture instructions that
 combine several changes, a further 7,500 records specify edits to two or three
 regions in a single request.
@@ -435,7 +444,7 @@ combined edits, sequential refinement, and numerically specified requests.
 Each FFD operation record provides the basis for generating Chinese
 natural-language design requests. Its structured action specification is given
 to one of seven language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7,
-DeepSeek-Flash, GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. Four alternative
+DeepSeek-V4.1-Flash, GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. Four alternative
 descriptions are requested for each editing step, including both steps in a
 two-step record. The generation instruction requires these descriptions to
 preserve the edited region, operation, relative magnitude, spatial range, and
@@ -462,22 +471,20 @@ After cleaning and selection, the SDD Dataset contains 134,558 records. The
 training, validation, and test partitions contain 88,604, 22,758, and 23,196
 records, respectively.
 
-\paragraph{Typed decision records.}
-Every natural-language record is converted into a set of typed questions with
-labelled candidate answers. The first question selects whether the request
-contains one, two, or three actions. Each action position then receives questions
-for its region and operation, followed by questions for qualitative or explicit magnitude mode, the discrete
-FFD level, displacement preservation, and deck-line preservation. Categorical
-questions use named alternatives, discrete FFD-level questions use six levels from
-no change to very large change, and Boolean questions use true or false
-alternatives. The original action order is retained in the question
-identifiers and in the labels.
+Each natural-language record is expanded into typed questions with labelled
+candidate answers. The first question selects one, two, or three actions. Each
+action position then receives questions for its region and operation, followed by
+questions for qualitative or explicit magnitude mode, the discrete FFD level,
+displacement preservation, and deck-line preservation. Categorical questions use
+named alternatives, discrete FFD-level questions use six levels from no change to
+very large change, and Boolean questions use true or false alternatives. The
+original action order is retained in the question identifiers and labels.
 
-SDDBench is frozen before model comparison. The test partition contains 23,196
-records and 201,774 expanded questions. A stratified procedure selects 5,000
-records by hull, description source, action count, and the presence of an explicit
-magnitude. The selected records contain 43,496 expanded questions, and every
-compared system receives the same selected requests.
+The test partition contains 23,196 records and 201,774 expanded questions. We
+select 5,000 records by hull, description source, action count, and the presence
+of an explicit magnitude to form SDDBench for rapid model evaluation. The
+selected subset contains 43,496 expanded questions, and every compared system
+receives the same selected requests.
 
 \paragraph{Evaluation protocol and metrics.}
 All compared systems receive the same SDDBench records, typed questions,
