@@ -18,3 +18,10 @@ datasets/
 /docs/paper/*.log
 /docs/paper/*.out
 /docs/paper/*.pdf
+
+# Generated exports and raster assets for the editable framework figure.
+/docs/paper/pics/framework/assets/
+/docs/paper/pics/framework/nl2hull_framework.png
+/docs/paper/pics/framework/nl2hull_framework.drawio.png
+/docs/paper/pics/framework/nl2hull_framework.svg
+/docs/paper/pics/framework/nl2hull_framework.pdf
