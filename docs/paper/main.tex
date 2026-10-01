@@ -1518,6 +1518,11 @@ Chip-4B & Qwen3.5-4B-Base & Cached Kev-4B & 1 & 8 \\
 \end{tabular}
 \end{center}
 
+The model-scale comparison therefore compares variant-specific initialized models
+under common SDD Dataset and SDDBench conditions. The Chip-4B launcher did not
+pass the LoRA rank explicitly, but its recorded run configuration specifies rank
+16; the table follows that recorded configuration.
+
 For the training-data-size experiment, every adapted checkpoint was independently
 initialized from the same published Kev-0.8B checkpoint and used the main Chip
 training settings. Nested subsets were sampled with random seed 0 at training
