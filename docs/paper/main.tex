@@ -1110,18 +1110,108 @@ range.
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Why LLMs Fail in Ship FFD Decision Making}
+\subsection{Constraint Semantics in End-to-End Ship-Form Editing}
+\label{sec:end2end-discussion}
+The end-to-end experiments exposed a failure mode in the interaction between
+action composition and constraint enforcement. Multi-region single-turn editing
+achieved a 60\% end-to-end success rate even though execution and geometry checks
+both reached 100\%. Among the 45 experiments containing at least one constraint,
+39 violated a constraint. Same-region two-turn editing reached 98\% success, with
+two additional constraint violations. The concentration of failures in the
+constraint stage points to the semantics of sequential constraint handling as a
+central factor in the end-to-end result.
+
+The implementation applies actions sequentially and performs displacement
+compensation inside each constrained action. Before such an action, the executor
+records the current volume; after the deformation, it rescales the hull to that
+recorded value. The end-to-end checker then evaluates the resulting turn against
+the volume at the beginning of the turn whenever any action in that turn carries
+a displacement-preservation requirement. Consequently, action-level compensation
+and turn-level verification use different reference states. An unconstrained
+action in the same turn can change the volume after a compensated action, and the
+final turn can therefore fail the global displacement check despite correct
+individual action semantics. The deck-line check follows the same sequential
+state logic and uses a strict numerical tolerance on the final top controls.
+
+This mechanism is supported by the failure records. Across the 41 constraint
+violations, 34 cases had both the predicted action semantics and the predicted
+constraint fields matched to the reference actions. The violations comprised 31
+volume-only cases, six deck-line-only cases, and four cases containing both types
+of residual. In the multi-region single-turn subset, the action list contained
+two or three sequential edits, allowing unconstrained edits to alter a quantity
+that an earlier constrained edit had restored. These cases show that trajectory
+matching and geometric validity can coexist with failure of the current
+constraint contract. A turn-level constraint representation, or a final
+projection that enforces all active constraints after the complete action list,
+would align execution with the end-to-end criterion.
+
+\subsection{Why Large Language Models Fail in Ship Free-Form Deformation Decision Making}
 \label{sec:llm-failures}
-Interpret failure categories revealed by the benchmark, including action-count
-errors, region/operation confusions, invalid probability structures, unsupported
-multi-action projections, and failures to preserve the typed semantics of the
-request. Connect each explanation to error statistics or qualitative examples.
+The benchmark places two coupled requirements on a language model: it must infer
+the ship-form action and serialize a complete typed probability response. The
+evaluator first receives the model response, parses JavaScript Object Notation
+(JSON), checks the required probability keys and value ranges, verifies that each
+distribution sums to one, and then projects the valid response into an ordered
+action sequence. A response can therefore fail after generation during parsing,
+probability-schema validation, or action projection.
+
+The local small models failed predominantly at these post-generation interface
+stages. Of 5,000 requests, Qwen3 had 4,225 rejected records, Gemma3 had 2,359,
+and Llama3.2 had 4,443. For Qwen3, the largest rejection groups were mismatched
+keys for the region, action-count, and operation distributions, with 2,463,
+977, and 772 cases, respectively. Gemma3 produced 1,419 action-count key
+mismatches, 694 operation key mismatches, and 230 region key mismatches. Llama3.2
+produced 1,820 action-count key mismatches, 1,388 responses without the required
+answer object, 696 operation key mismatches, and 259 region key mismatches.
+Malformed JSON and invalid numerical distributions occurred less frequently.
+These records establish that output serialization is a major source of failure
+for the small local models.
+
+Valid responses still contained decision errors. Question accuracy was 75.61\%
+for Qwen3, 66.97\% for Gemma3, and 63.94\% for Llama3.2, while FFD exact rates
+were 2.84\%, 15.98\%, and 2.16\%, respectively. The action metric uses all
+requested turns, so it incorporates both rejected responses and incorrect
+actions; the question metric isolates decisions that passed the probability
+checks. The two metrics together show separate costs for semantic action
+selection and strict response construction. The latency results add a system
+cost: the mean per-request latencies of these models ranged from 18.41 to
+25.28~s, while the specialized Kev-0.8B model required 118.01~ms under the same
+benchmark setting. A decision interface for ship-form editing therefore benefits
+from training that jointly covers domain semantics, action ordering, constraint
+labels, and the required probability schema.
 
 \subsection{Specialized Model Scale and Data Efficiency}
 \label{sec:scale-efficiency}
-Discuss the relationship between model scale, training data, calibration, and
-action-level reliability. Separate observations directly supported by the scale
-comparison from hypotheses about why specialized decision training helps.
+The scale and data ablations separate capacity from task-specific coverage. With
+the same ship-design data and evaluation protocol, increasing Kev from 0.8 billion
+to 2 billion and 4 billion parameters changed Question accuracy by only 0.0398
+percentage points across the three models. Kev-2B gave the highest Question
+accuracy and the best negative log-likelihood, expected calibration error, and
+Brier score, whereas Kev-0.8B gave the highest FFD exact rate. The close results
+show that the tested decision space can be represented by the smaller specialized
+model, and that additional parameters alone produced little movement in the
+measured metrics.
+
+Training-data size had a stronger measured effect. Ship-design adaptation raised
+Question accuracy from 80.82\% at the 0\% reference to 94.02\% with 1\% of the
+original training dataset, followed by continued improvement through the full
+dataset. From 25\% to 100\%, Question accuracy increased from 95.66\% to 95.90\%
+and FFD exact match increased from 99.14\% to 99.32\%; negative log-likelihood,
+expected calibration error, and Brier score also decreased. The continued change
+at the largest evaluated data size indicates that the training examples supplied
+useful coverage for both action decisions and probability calibration.
+
+The task has a finite action vocabulary but a structured composition: each
+request specifies an action count, regions, operations, qualitative magnitude
+levels, and optional preservation constraints, and the resulting sequence must
+remain compatible with the free-form deformation executor. This structure makes
+capacity sufficient for the tested action space while placing high demands on
+label coverage, action ordering, and output regularity. The ablations therefore
+support a data--capacity trade-off in which task-specific data and a compatible
+output protocol provide larger gains than parameter growth across the tested
+range. The 0.8-billion-parameter specialized model combines this performance
+with the lowest measured inference latency, making it a practical capacity point
+for the evaluated decision interface.
 
 % -----------------------------------------------------------------------------
 \section{Conclusion and Future Work}
