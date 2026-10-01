@@ -21,10 +21,10 @@
 \def\floatpagepagefraction{1}
 \def\textpagefraction{.001}
 
-\shorttitle{Natural-language-driven constrained ship design}
+\shorttitle{NL2Hull: Constrained ship design}
 \shortauthors{Author et~al.}
 
-\title [mode = title]{Natural Language-Driven Constrained Ship Design Decision Framework}
+\title [mode = title]{NL2Hull: A Natural Language-Driven Constrained Ship Design Decision Framework}
 
 % Replace author and affiliation placeholders before submission.
 \author[1]{Author Name}
@@ -39,30 +39,31 @@
 
 \begin{abstract}
 Ship-form design combines smooth geometric representation, local shape editing,
-and constraints on the resulting hull. We formulate natural-language ship-form
-editing as a typed discrete decision problem and connect it to a numerical
-geometry engine. The framework represents hull waterlines with non-uniform
-rational B-splines (NURBS), applies free-form deformation (FFD) to their control
-points, predicts probability distributions for typed action questions, and
-projects the answers into executable deformation actions. We construct a
-ship-design decision dataset and evaluate all compared models with a common
-probability-question and action-scoring protocol on 5,000 records containing
-43,496 typed questions. The specialized Kev-0.8B model reaches 95.90\% question
-accuracy and 99.32\% FFD exact rate, with a negative log-likelihood of 0.0951,
-an expected calibration error of 0.0032, and a Brier score of 0.0551. The
-NURBS representation ablation reduces the mean stem-contour root-mean-square
+and constraints on the resulting hull. We present the Natural-Language-to-Hull
+Framework (NL2Hull Framework), which formulates ship-form editing as a typed
+discrete decision problem and connects language decisions to numerical geometry.
+Its Constrained Free-Form Deformation Engine (CFFD Engine) represents hull
+waterlines with non-uniform rational B-splines (NURBS), applies free-form
+deformation (FFD) to their control points, reconstructs the hull, and checks
+geometric constraints. We construct the Ship Design Decision Dataset (SDD
+Dataset) with 134,558 cleaned records and evaluate compared models on its frozen
+Ship Design Decision Benchmark (SDDBench), containing 5,000 records and 43,496
+typed questions. The
+ship-design-adapted Chip model, initialized from Kev-0.8B, reaches 95.90\%
+question accuracy and 99.32\% FFD exact match, with a negative log-likelihood of
+0.0951, an expected calibration error of 0.0032, and a Brier score of 0.0551.
+The NURBS representation ablation reduces the mean stem-contour root-mean-square
 error to 0.000221 over 12 classic hulls. End-to-end editing on a KVLCC2 hull
 achieves 100\% success for single edits, 60\% for multi-region single-turn
 edits, and 98\% for same-region two-turn edits; the lower multi-action rate
 reveals a mismatch between action-level constraint compensation and turn-level
-constraint verification in the current geometry engine. The framework therefore
-provides a reproducible interface for evaluating language-based ship-form
-decisions while identifying the geometry and continuous-control components that
-require further development.
+constraint verification in the CFFD Engine. The NL2Hull Framework provides a reproducible interface for evaluating language-based ship-form decisions while
+identifying the geometry and continuous-control components that require further
+development.
 \end{abstract}
 
 \begin{highlights}
-\item Defines a NURBS-based discrete decision problem for constrained ship-form editing.
+\item Defines a spline-based discrete decision problem for constrained ship-form editing.
 \item Connects typed probability prediction to executable free-form deformation actions.
 \item Provides common benchmark, calibration, action-level, and end-to-end evaluations.
 \end{highlights}
@@ -81,90 +82,111 @@ Ship-form design relies on geometric representations that preserve smoothness
 while exposing parameters that naval architects can interpret and modify. Early
 parametric hull-form work combined naval-architecture features with non-uniform
 rational B-spline (NURBS) surfaces and used control-point manipulation to vary
-local hull zones~\citep{nam2000parametric}. Subsequent NURBS-based approaches
-addressed hull-surface skinning and feature-parameter deformation~\citep{shamsuddin2006skinning,zhou2022nurbs}.
+local hull zones~\citep{nam2000parametric}. Parametric hull-form design also
+connected ship-design practice with NURBS skinning and feature deformation
+~\citep{abt2001parametric,shamsuddin2006skinning,zhou2022nurbs}.
+Parametric ship-design studies further linked hull-form variables to practical
+design workflows and objective-driven optimization~\citep{wilson2010hull,peri2001cfd}.
+Uncertainty-aware and numerical optimization methods extended this design line
+~\citep{campana2009optimization,diez2012uncertainty}.
 These studies establish a useful geometric foundation, while also showing that
 the quality of an editable hull depends on the choice of parameterization,
 continuity across regions, and the relation between geometric parameters and
 engineering requirements. A numerical hull representation alone does not specify
 which edit a designer intends or how a sequence of edits should be verified.
 
-Free-form deformation provides a general mechanism for applying local and global
-changes to geometric models, with continuity control and volume-preserving
+Free-form deformation (FFD) provides a general mechanism for applying local and
+global changes to geometric models, with continuity control and volume-preserving
 constructions available within the deformation formulation~\citep{sederberg1986ffd}.
 In ship design, parametric generation and deformation have supported hull
 optimization and constrained hull generation. ShipGen produces parametric hull
 vectors under multiple objectives and constraints~\citep{bagazinski2023shipgen},
 and C-ShipGen conditions hull generation on design requirements and resistance
 information~\citep{bagazinski2024cshipgen}. These methods focus on generating or
-optimizing hull candidates from structured parameters and performance objectives.
+optimizing hull candidates from structured parameters and performance objectives,
+with hydrodynamic optimization providing established links between geometry and
+performance objectives~\citep{peri2001cfd,campana2009optimization}.
 An interactive design system also needs to map a designer's language to a
 sequence of localized operations and then verify the resulting geometry after
 each sequence.
 
 Natural-language interfaces provide a route to this interaction. Early work on
 natural-language computer-aided design established the goal of translating design
-intent into parametric operations~\citep{samad1985cad}. Recent text-to-computer-aided-design
-systems generate sequential parametric models and evaluate geometric or
-parametric fidelity~\citep{khan2024text2cad}; visual-feedback training further
-connects generated sequences to rendered outcomes~\citep{wang2025cadfusion}.
-Language-grounded action systems similarly show that high-level instructions
-require an executable skill layer tied to the state of a physical environment
-~\citep{ahn2022saycan}. Typed decision models provide another relevant interface:
-they return choices, rubric scores, and probabilities for explicitly specified
-questions instead of unrestricted text~\citep{deusser2026jev}. Structured-output
-decoding methods also demonstrate that syntax and semantics of machine-readable
-outputs require explicit control during generation~\citep{scholak2021picard}.
+intent into parametric operations~\citep{samad1985cad}. Work on valid parametric
+CAD models and relational sketch constraints emphasizes that executable design
+representations require structural consistency~\citep{hoffmann2001valid,seff2020sketchgraphs}.
+DeepCAD learns sequential CAD commands~\citep{wu2021deepcad}, Text2CAD generates
+parametric sequences from text~\citep{khan2024text2cad}, and BrepGen models
+structured boundary-representation geometry~\citep{xu2024brepgen}.
+Visual-feedback training further connects generated sequences to rendered
+outcomes~\citep{wang2025cadfusion}.
+Language-grounded action systems connect instructions to executable skills and
+policy programs~\citep{ahn2022saycan,liang2022codepolicies}. Multimodal embodied
+models incorporate observations into planning or action prediction~\citep{driess2023palme,brohan2023rt2},
+while closed-loop language feedback supports replanning during execution~\citep{huang2022innermonologue}.
+Typed decision models provide another relevant interface: they return choices,
+rubric scores, and probabilities for explicitly specified questions instead of
+unrestricted text~\citep{deusser2026jev}. Structured-output methods constrain machine-readable output structure during
+generation through parsing, grammars, and programmatic constraints
+~\citep{scholak2021picard,geng2023grammar,willard2023guided,beurer2022lmql}.
 Together, these directions motivate a ship-specific interface in which language
 understanding, typed action selection, and geometric execution are evaluated as
 linked stages.
 
-We formulate this interface as a constrained discrete decision problem for
-NURBS-based ship-form free-form deformation. Given a natural-language design
-request and a set of typed questions, the decision layer predicts the action
-count, affected region, operation, qualitative magnitude, and preservation
-constraints as probability distributions. The highest-probability decisions are
-projected into an ordered action representation, applied to a separately supplied
-NURBS waterline state, and checked through hull reconstruction, geometric validity,
-and constraint tests. This formulation separates language-level uncertainty from
-numerical geometry and permits a common evaluation of question accuracy,
-probability calibration, action exactness, and end-to-end editing.
+We call the complete system the Natural-Language-to-Hull Framework (NL2Hull
+Framework). Its decision layer formulates ship-form editing as a constrained
+discrete problem for NURBS-based FFD. Given a natural-language design request
+and a set of typed questions, the decision layer predicts the action count,
+affected region, operation, qualitative magnitude, and preservation constraints
+as probability distributions. The highest-probability decisions are projected
+into an ordered action representation, applied to a separately supplied NURBS
+waterline state by the Constrained Free-Form Deformation Engine (CFFD Engine),
+and checked through hull reconstruction,
+geometric validity, and constraint tests. This formulation separates language-
+level uncertainty from numerical geometry and permits a common evaluation of
+question accuracy, probability calibration, action exactness, and end-to-end
+editing. In this paper, the ship-design-adapted 0.8-billion-parameter model is
+called Chip, combining ``Constrained'' with the final three letters of ``ship''.
+Its larger variants are Chip-2B and Chip-4B; Kev-Base denotes the published
+Kev-0.8B checkpoint before ship-design adaptation. The cleaned natural-language collection is the
+Ship Design Decision Dataset (SDD Dataset), and its frozen evaluation subset is
+SDDBench, the Ship Design Decision Benchmark.
 
 The study makes four contributions:
 \begin{enumerate}
     \item It defines a reproducible NURBS-based decision task for translating
-    natural-language ship-form intent into interpretable free-form deformation
-    actions.
-    \item It implements a typed probability-to-action pipeline with sequential
-    deformation, hull reconstruction, and explicit geometric constraint checks.
-    \item It provides a ship-design dataset and a common benchmark protocol that
-    evaluates question accuracy, probability quality, action exactness, and
-    latency across specialized, typed-decision, and general language models,
-    while validating end-to-end editing with the specialized model.
-    \item It analyzes geometric representation, specialized model scale, and
-    ship-design training-data size, and identifies the execution-level constraint
-    behavior and continuous-control capabilities that require further development.
+    natural-language ship-form intent into interpretable FFD actions.
+    \item It implements NL2Hull Framework with the CFFD Engine, including typed
+    probability-to-action projection, sequential deformation, hull reconstruction,
+    and explicit geometric constraint checks.
+    \item It constructs the SDD Dataset and SDDBench evaluation protocol for
+    question accuracy, probability quality, FFD exact match, and latency across
+    Chip, JEV, and general language models, while validating end-to-end editing
+    with Chip.
+    \item It analyzes representation, Chip model scale, and SDD Dataset size, and
+    identifies constraint and continuous-control issues for future development.
 \end{enumerate}
 
 % -----------------------------------------------------------------------------
 \section{Methods}
 \label{sec:methods}
 
-This section defines the geometric representation, the decision interface, and the
-dataset and evaluation protocol. The central design choice is to use the model as a
-typed decision layer rather than asking it to emit unrestricted NURBS control-point
-coordinates.
+This section defines the CFFD Engine, the NL2Hull Framework decision interface,
+and the SDD Dataset and SDDBench evaluation protocol. The central design choice
+is to use the model as a typed decision layer rather than asking it to emit
+unrestricted NURBS control-point coordinates.
 
-\subsection{NURBS-Based Ship Representation and FFD}
+\subsection{CFFD Engine: NURBS-Based Ship Representation and FFD}
 \label{sec:nurbs-ffd}
 
-To provide a compact parameterization for localized and global ship-form
-deformation, the ship form is represented by longitudinal waterline curves and
-fore and aft contours in the longitudinal--vertical plane. Non-uniform rational
-B-splines (NURBS) describe these curves through control points, positive weights,
-and knot vectors. Free-form deformation (FFD) then operates directly on the
-waterline control points, so local and global ship-form changes can be expressed
-through the same parameterized representation.
+The CFFD Engine provides a compact parameterization for localized and global
+ship-form deformation. The ship form is represented by longitudinal waterline
+curves and fore and aft contours in the longitudinal--vertical plane. NURBS
+describe these curves through control points, positive weights, and knot vectors.
+FFD then operates directly on the waterline control points, so local and global
+ship-form changes can be expressed through the same parameterized representation.
+Together with hull reconstruction and constraint checks, this representation and
+its deformation rules constitute the CFFD Engine.
 
 \paragraph{Coordinate system and waterline representation.}
 To express different ship forms in a common coordinate system, all coordinates
@@ -266,7 +288,7 @@ are checked for longitudinal monotonicity and non-negative half-breadth. An
 optional shape-change threshold is imposed on changes in normalized second
 differences of the longitudinal and transverse control-point coordinates.
 
-\subsection{Decision Framework for Natural-Language-Driven Ship Design}
+\subsection{NL2Hull Decision Interface}
 \label{sec:decision-framework}
 
 Building on the parameterized ship form and deformation rules above, we formulate
@@ -300,10 +322,12 @@ associate the additional design requirements with their corresponding action
 positions.
 
 \paragraph{Probability-based decision making.}
-We use Kev as the foundation model for natural-language decision making in this
-framework\footnote{\url{https://github.com/jaredpalmer/kev}}. Its decision
-interface returns a probability distribution over the candidate answers for each
-question. Let $t$ denote the request text, $q_j$ the $j$th question, and
+We use the published Kev model family as the foundation for natural-language
+decision making in this framework\footnote{\url{https://github.com/jaredpalmer/kev}}.
+The adapted checkpoints use the Chip names defined in the Introduction, and the
+unadapted published checkpoint used as the 0\% reference is Kev-Base. The Kev
+decision interface returns a probability distribution over the candidate answers
+for each question. Let $t$ denote the request text, $q_j$ the $j$th question, and
 $\mathcal{Y}_j$ its candidate set. The distribution is written as
 \begin{equation}
  p_{\theta}(y\mid t,q_j),
@@ -351,10 +375,10 @@ In this way, the decision vocabulary specifies the location and type of ship-for
 edit, and the geometric action parameters specify its size, extent, and
 constraints.
 
-\subsection{Ship Design Decision Dataset and Benchmark}
+\subsection{SDD Dataset and SDDBench}
 \label{sec:dataset-benchmark}
 
-The dataset connects ship-form representations, executable FFD actions, and
+The SDD Dataset connects ship-form representations, executable FFD actions, and
 natural-language design requests. The construction process has four stages:
 collecting and standardizing ship forms, generating valid structured FFD actions,
 producing natural-language descriptions, and converting each description into a
@@ -394,9 +418,10 @@ specification, the interaction turns, and the geometric measurements after each
 turn. The action specification includes the edited region, operation, magnitude,
 spatial extents, symmetry, and optional geometric constraints.
 
-Using this procedure, we sampled and generated 30,000 FFD operation records.
-The 30,000-record dataset covers four design scenarios to capture both simple
-edits and more involved requests. Single-edit records describe one local or
+Using this procedure, the structured action generator sampled 30,000 FFD
+operation records. These records form the action source for the SDD Dataset and
+cover four design scenarios that capture both simple edits and more involved
+requests. Single-edit records describe one local or
 global modification and account for 9,000 records. To capture instructions that
 combine several changes, a further 7,500 records specify edits to two or three
 regions in a single request.
@@ -431,14 +456,14 @@ requests includes a short ship-design or engineering background. This introduces
 contextual variation around the same editing goal, alongside requests that state
 the modification directly.
 
-Before constructing the decision dataset, the generated descriptions are checked
-for plain-language format, required numerical values, and disclosure of internal
-magnitude labels. The original natural-language dataset contains 149,998
-descriptions. Data cleaning removes conflicting duplicate-text groups, and
-8,076 rollback-oriented augmentations with invalid labels are excluded. After
-cleaning and selection, the final dataset contains 134,558 records. The training,
-validation, and test partitions contain 88,604, 22,758, and 23,196 records,
-respectively.
+Before constructing the typed decision records, the generated descriptions are
+checked for plain-language format, required numerical values, and disclosure of
+internal magnitude labels. The original natural-language collection contains
+149,998 descriptions. Data cleaning removes conflicting duplicate-text groups,
+and 8,076 rollback-oriented augmentations with invalid labels are excluded.
+After cleaning and selection, the SDD Dataset contains 134,558 records. The
+training, validation, and test partitions contain 88,604, 22,758, and 23,196
+records, respectively.
 
 \paragraph{Typed decision records.}
 Every natural-language record is converted into a set of typed questions with
@@ -451,20 +476,20 @@ no change to very large change, and Boolean questions use true or false
 alternatives. The original action order is retained in the question
 identifiers and in the labels.
 
-The final benchmark is frozen before model comparison. The test partition contains
-23,196 records and 201,774 expanded questions. A stratified procedure selects
-5,000 records by hull, description source, action count, and the presence of an
-explicit magnitude. The selected records contain 43,496 expanded questions and
-are stored with a fixed SHA-256 digest so that every model receives the same
-requests.
+SDDBench is frozen before model comparison. The test partition contains 23,196
+records and 201,774 expanded questions. A stratified procedure selects 5,000
+records by hull, description source, action count, and the presence of an explicit
+magnitude. The selected records contain 43,496 expanded questions, and every
+compared system receives the same selected requests.
 
 \paragraph{Evaluation protocol and metrics.}
-All compared systems receive the same frozen records, typed questions, candidate
-sets, output format, probability validation, and metric aggregation procedure.
+All compared systems receive the same SDDBench records, typed questions,
+candidate sets, output format, probability validation, and metric aggregation procedure.
 For each question, the model returns a probability distribution over all listed
 answers. Question-level performance is measured by clean accuracy, negative
-log-likelihood, expected calibration error, and Brier score. These metrics use
-the expanded question set and retain the full probability distributions.
+log-likelihood (NLL), expected calibration error (ECE), and Brier score. These
+probability metrics follow established calibration practice~\citep{guo2017calibration,kull2019dirichlet}.
+They use the expanded question set and retain the full probability distributions.
 
 The maximum-probability answers are also projected into an ordered sequence of
 region--operation pairs. Free-form deformation action accuracy is computed from
@@ -534,12 +559,11 @@ geometric closure of the reconstructed section-based surface.
 \end{figure*}
 
 Table~\ref{tab:reconstruction-error} summarizes the reconstruction errors. The
-surface nearest-neighbour RMSE ranged from 0.0024 for the Wigley hull to 0.0113
-for DTC. The KCS hull achieved a surface nearest-neighbour RMSE of 0.0062, a
-waterline half-breadth RMSE of 0.0031, a fore-profile RMSE of 0.0003, and an
-aft-profile RMSE of 0.0008. Across the twelve hulls, the profile-fitting errors
-remained below 0.0013 for the fore profiles and below 0.0013 for the aft profiles
-when measured by RMSE. These measurements show that the parameterization preserves
+surface nearest-neighbour root-mean-square error (RMSE) ranged from 0.0024 for
+Wigley to 0.0113 for DTC. KCS achieved a surface nearest-neighbour RMSE of
+0.0062, a waterline half-breadth RMSE of 0.0031, a fore-profile RMSE of 0.0003,
+and an aft-profile RMSE of 0.0008. Across the twelve hulls, fore and aft
+profile-fitting errors remained below 0.0013 when measured by RMSE. These measurements show that the parameterization preserves
 the extracted longitudinal and transverse geometry across multiple hull forms.
 
 \begin{table*}[t]
@@ -636,49 +660,48 @@ Global breadth increase & 5 & 1.120 & Yes & Yes \\
 \end{table}
 
 Together, the reconstruction and deformation experiments establish a continuous
-geometric workflow from STL input to NURBS parameters, from control-point updates
+geometric workflow from stereolithography (STL) input to NURBS parameters, from control-point updates
 to reconstructed hull surfaces, and from local or global FFD operations to
 geometric validity checks. The reconstruction errors quantify representation
 fidelity, while the FFD cases demonstrate the spatial selectivity and global
 scaling behaviour of the deformation operators. These experiments demonstrate
 the feasibility of the ship-form representation and reconstruction pipeline,
-providing the geometric engine for subsequent natural-language-driven ship
+providing the CFFD Engine for subsequent natural-language-driven ship
 design.
 
-\subsection{Ship Design Decision Benchmark Evaluation}
+\subsection{SDDBench Evaluation}
 \label{sec:benchmark}
 
-\subsubsection{Performance on the ship-design decision benchmark}
+\subsubsection{Performance on SDDBench}
 \label{sec:ship-decision-results}
 
 To evaluate model performance in ship-design decision making, all systems were
-tested on the same frozen set of 5,000 records and 43,496 expanded typed
-questions. The comparison includes Kev-0.8B as the specialized model developed in
+tested on SDDBench, which contains 5,000 records and 43,496 expanded typed
+questions. The comparison includes Chip as the ship-design-adapted model developed in
 this work, the native JEV decision model, three flagship language models, and
 three locally served small language models.
 
 Question-level metrics are computed over successfully evaluated questions. For
 each question, the model produces a probability distribution over the labelled
-candidate answers. Question accuracy measures the fraction of questions whose
-most probable answer is correct. Negative log-likelihood (NLL), expected
-calibration error (ECE), and Brier score use the complete returned distributions. The FFD exact-match score
-is computed after projecting the most probable typed answers into an ordered
+candidate answers. The question accuracy measures the fraction of questions
+whose most probable answer is correct. NLL, ECE, and Brier score use the complete
+returned distributions. FFD exact match is computed after projecting the most
+probable typed answers into an ordered
 sequence of region--operation pairs. Its denominator contains all 5,000 requested
 records, including failed calls, malformed outputs, invalid probability
 structures, and incompatible predicted action counts. Table~\ref{tab:benchmark-outline}
 summarizes the comparison.
 
 \begin{table*}[t]
-\caption{Performance on the frozen ship-design decision benchmark. Question
-accuracy is computed over successfully evaluated questions, and FFD exact match
-uses all 5,000 requested records. Accuracy values are percentages; lower values
+\caption{Performance on SDDBench. Question accuracy is computed over successfully
+evaluated questions, and FFD exact match uses all 5,000 requested records. Accuracy values are percentages; lower values
 are preferred for NLL, ECE, and Brier score. Best values are shown in bold.}
 \label{tab:benchmark-outline}
 \centering
 \small
 \begin{tabular}{lrrrrr}
 \toprule
-Model & Question accuracy $\uparrow$ & FFD exact $\uparrow$ & NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
+Model & Question accuracy $\uparrow$ & FFD exact match $\uparrow$ & NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \midrule
 \multicolumn{6}{l}{\textit{Small language models}} \\
 Qwen3                 & 75.61 & 2.84  & 1.2088 & 0.1148 & 0.3803 \\
@@ -692,26 +715,25 @@ DeepSeek V4.1 Flash   & 92.84 & 98.40 & 0.6808 & 0.0307 & 0.1158 \\
 \hline
 \multicolumn{6}{l}{\textit{Language decision models}} \\
 JEV                   & 90.96 & 84.52 & 0.3092 & 0.0271 & 0.1266 \\
-Kev-0.8B (Ours)       & \textbf{95.90} & \textbf{99.32} & \textbf{0.0951} & \textbf{0.0032} & \textbf{0.0551} \\
+Chip (Ours)       & \textbf{95.90} & \textbf{99.32} & \textbf{0.0951} & \textbf{0.0032} & \textbf{0.0551} \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-Kev-0.8B achieved the highest question accuracy among the compared systems,
-reaching 95.90\%, and also achieved the highest FFD exact-match accuracy at
-99.32\%. Its negative log-likelihood, expected calibration error, and Brier score
-were 0.0951, 0.0032, and 0.0551, respectively. These values were lower than the
+Chip achieved the highest question accuracy among the compared systems,
+reaching 95.90\%, and also achieved the highest FFD exact match at
+99.32\%. Its NLL, ECE, and Brier score were 0.0951, 0.0032, and 0.0551, respectively. These values were lower than the
 corresponding values of JEV, which reached 90.96\% question accuracy and 84.52\%
-FFD exact match. The specialized model therefore combined accurate typed answers
-with well-calibrated probability outputs on the ship-design benchmark.
+FFD exact match. Chip therefore combined accurate typed answers
+with well-calibrated probability outputs on SDDBench.
 
 The flagship language models produced competitive action-level results. Claude
 Opus 5 reached 99.12\% FFD exact match and GPT-5.6 Sol reached 98.32\%, while
 their question accuracies were 92.87\% and 92.44\%. DeepSeek V4.1 Flash
 reached 92.84\% question accuracy and 98.40\% FFD exact match. The action-level
-scores of these models were close to the specialized model, while their
+scores of these models were close to Chip, while their
 question-level accuracies were lower and their probability error measures were
-higher than those of Kev-0.8B.
+higher than those of Chip.
 
 The locally served models showed a different pattern under the same output
 protocol. Qwen3, Gemma3, and Llama3.2 achieved question accuracies of 75.61\%,
@@ -719,32 +741,31 @@ protocol. Qwen3, Gemma3, and Llama3.2 achieved question accuracies of 75.61\%,
 exact-match scores were 2.84\%, 15.98\%, and 2.16\%, respectively. Invalid or
 failed probability responses occurred in 4,225, 2,359, and 4,443 records for these
 three models, respectively, compared with 678 for JEV and 31
-for DeepSeek. Kev-0.8B, Claude Opus 5, and GPT-5.6 Sol returned valid probability
+for DeepSeek. Chip, Claude Opus 5, and GPT-5.6 Sol returned valid probability
 responses for all 5,000 records. Incompatible predicted action counts were also
 counted as FFD projection failures. Because FFD exact match retains every
 requested record in its denominator, these results jointly
 measure decision quality and the reliability of producing a valid typed response
 under the evaluation interface. The comparison shows that parameter scale alone
-does not reproduce the reliability of specialized decision training.
+does not reproduce the reliability of task-specific Chip training.
 
 \subsubsection{General decision capability on JevBench}
 \label{sec:jevbench-results}
 
 To assess general decision performance after training on the ship-design
-decision dataset, Kev-0.8B was tested on the public JevBench
+SDD Dataset, Chip was tested on the public JevBench
 benchmark\footnote{\url{https://github.com/fstandhartinger/jevbench}}.
 This evaluation applies the same typed-decision interface to tasks outside ship
 design. The Easy, Original, and Hard tiers contained 48, 72, and 111 planned tasks,
 respectively. All planned tasks produced valid probability distributions and were
 scorable under the public-only protocol.
 
-Kev-0.8B solved all 48 Easy tasks, solved 59 of 72 Original tasks, and solved 41
+Chip solved all 48 Easy tasks, solved 59 of 72 Original tasks, and solved 41
 of 111 Hard tasks. The corresponding accuracies were 100.0000\%, 81.9444\%, and
 36.9369\%. The Original tier produced a Brier score of 0.3489 and an expected
 calibration error of 0.1633. The Easy and Hard tiers produced Brier scores of
-0.0026 and 0.8782, with expected calibration errors of 0.0075 and 0.3577,
-respectively. These results show that the ship-specialized model remains
-operational on external typed-decision tasks, while task difficulty produces a
+0.0026 and 0.8782, with ECE values of 0.0075 and 0.3577,
+respectively. These results show that Chip remains operational on external typed-decision tasks, while task difficulty produces a
 clear performance gradient.
 
 Table~\ref{tab:jevbench-results} presents the three tier accuracies alongside
@@ -752,8 +773,8 @@ public reference results for other typed-decision systems.
 
 \begin{table*}[t]
 \caption{General typed-decision evaluation on JevBench. Accuracy values are
-percentages. Brier score and expected calibration error are computed by the
-corresponding benchmark scorers; lower values are preferred. Kev-0.8B calibration
+percentages. Brier score and ECE are computed by the
+corresponding benchmark scorers; lower values are preferred. Chip calibration
 metrics are from the Original tier. Public reference calibration values follow
 the reporting scope of the supplied JevBench comparison table.}
 \label{tab:jevbench-results}
@@ -763,17 +784,17 @@ the reporting scope of the supplied JevBench comparison table.}
 \toprule
 Model & Easy & Original & Hard & Brier $\downarrow$ & ECE $\downarrow$ \\
 \midrule
-Jev                  & \textbf{100.0000} & \textbf{98.6100} & 72.0700 & 0.3584 & 0.0947 \\
+JEV                  & \textbf{100.0000} & \textbf{98.6100} & 72.0700 & 0.3584 & 0.0947 \\
 Laya                 & 95.8300  & 72.2200 & 28.8300 & 0.8042 & 0.2465 \\
 SemIf                & \textbf{100.0000} & \textbf{98.6100} & 61.2600 & 0.4980 & 0.1122 \\
 JevK5                & \textbf{100.0000} & 97.2200 & \textbf{73.8700} & 0.3662 & \textbf{0.0467} \\
 Intern-Decision-0.8B & 97.9200  & 80.5600 & 52.2500 & 0.5295 & 0.0657 \\
-Kev-0.8B (Ours)      & \textbf{100.0000} & 81.9444 & 36.9369 & \textbf{0.3489} & 0.1633 \\
+Chip (Ours)      & \textbf{100.0000} & 81.9444 & 36.9369 & \textbf{0.3489} & 0.1633 \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-On the Easy tier, Kev-0.8B matched the best accuracy in the supplied comparison.
+On the Easy tier, Chip matched the best accuracy in the supplied comparison.
 Its Original-tier accuracy exceeded the reported values for Laya and
 Intern-Decision-0.8B, while the Hard-tier accuracy remained below the strongest
 public reference rows. The increasing probability errors from the Easy tier to
@@ -786,18 +807,18 @@ underlying decision tasks.
 \subsection{End-to-End Ship Form Editing Evaluation}
 \label{sec:end-to-end}
 
-This section evaluates the complete natural-language-driven ship-form editing
-workflow and its computational time. The workflow receives a natural-language
-instruction, predicts typed deformation decisions, projects them into executable
-FFD actions, updates the NURBS waterline parameters, reconstructs the edited hull,
-and checks geometric validity and design constraints. The evaluation therefore
+This section evaluates the end-to-end editing stage of NL2Hull Framework and its
+computational time. The workflow receives a natural-language instruction, predicts
+typed deformation decisions, projects them into executable FFD actions, updates
+the NURBS waterline parameters through the CFFD Engine, reconstructs the edited
+hull, and checks geometric validity and design constraints. The evaluation therefore
 connects decision accuracy with the resulting ship-form edit.
 
 \subsubsection{End-to-end ship-form editing}
 \label{sec:end-to-end-editing}
 
 The end-to-end evaluation used the KVLCC2 hull and 300 sampled experiments from
-the ship-design dataset. The experiments were evenly divided among single edits,
+the SDD Dataset. The experiments were evenly divided among single edits,
 multi-region edits within one turn, and two consecutive edits applied to the same
 region. The 300 experiments contained 400 natural-language requests because each
 continuous two-turn experiment included two requests. The evaluation used
@@ -914,11 +935,11 @@ handling; model initialization, result aggregation, and geometric processing are
 excluded. The API evaluators recorded latency for both successful and failed
 attempts, whereas the JEV output provided latency for its 4,322 completed
 requests. Table~\ref{tab:latency-results} follows the model grouping used in
-Table~\ref{tab:benchmark-outline} and places Kev-0.8B at the end of the
+Table~\ref{tab:benchmark-outline} and places Chip at the end of the
 language-decision group.
 
 \begin{table*}[t]
-\caption{Per-request model latency on the 5,000-record benchmark. Mean and
+\caption{Per-request model latency on SDDBench. Mean and
 95th-percentile latency are reported in milliseconds from the recorded evaluator
 outputs. The API evaluators timed failed attempts as well as successful attempts;
 the JEV latency statistics use its 4,322 completed requests.}
@@ -941,12 +962,12 @@ DeepSeek V4.1 Flash  & 4630.63  & 11131.43 \\
 \hline
 \multicolumn{3}{l}{\textit{Language decision models}} \\
 JEV                  & 1510.33  & 2908.01 \\
-Kev-0.8B (Ours)      & 118.01   & 235.55 \\
+Chip (Ours)      & 118.01   & 235.55 \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-The specialized Kev model had the lowest recorded latency, with a mean of
+Chip had the lowest recorded latency, with a mean of
 118.01 ms and a 95th-percentile latency of 235.55 ms. JEV was the next fastest
 language-decision model, while the flagship and small language models required
 longer per-request processing under the evaluated settings. The geometric
@@ -960,8 +981,8 @@ and geometric checks.
 \label{sec:ablations}
 
 To isolate the contributions of geometric representation, model scale, and
-training-data size, we evaluated each design choice under a shared benchmark
-protocol and compared the resulting reconstruction and decision metrics.
+training-data size, we evaluated each design choice under the SDDBench protocol
+and compared the resulting reconstruction and decision metrics.
 
 \subsubsection{Sensitivity to NURBS Representation}
 \label{sec:ablation-nurbs}
@@ -974,8 +995,7 @@ uniform clamped cubic-spline knots. Three representation features were then
 introduced separately or together: 32 control points, a repeated knot at the stem
 deck corner, and locally concentrated knots around the bulb.
 
-The primary metrics were the root-mean-square errors of the fitted stem and stern
-contours, calculated against their 80-point resampled reference contours. These
+The primary metrics were the RMSEs of the fitted stem and stern contours, calculated against their 80-point resampled reference contours. These
 metrics directly measure the accuracy of the profile curves modified in this
 experiment.
 
@@ -1045,39 +1065,38 @@ A+B+C & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000
     \label{fig:profile-ablation}
 \end{figure*}
 
-\subsubsection{Effect of Kev Model Scale}
+\subsubsection{Effect of Chip Model Scale}
 \label{sec:ablation-scale}
 
 We next evaluated the effect of model scale while keeping the data, probability
-questions, inference protocol, action projection, and benchmark fixed. The
-comparison used Kev models with 0.8 billion, 2 billion, and 4 billion parameters.
-Question accuracy was computed over the successfully scored probability
-questions, and FFD exact rate was computed over all requested turns, including
-failed evaluations. Negative log-likelihood, expected calibration error, and
-Brier score measure probability quality and calibration.
+questions, inference protocol, action projection, and SDDBench fixed. The
+comparison used Chip models with 0.8 billion, 2 billion, and 4 billion parameters.
+The question accuracy was computed over the successfully scored probability
+questions, and FFD exact match was computed over all requested turns, including
+failed evaluations. NLL, ECE, and Brier score measure probability quality and
+calibration.
 
 Table~\ref{tab:scale-ablation} shows closely clustered results across the three
-models. Kev-2B achieved the highest question accuracy and the lowest probability
-error measures, whereas Kev-0.8B achieved the highest FFD exact rate. Because
+models. Chip-2B achieved the highest question accuracy and the lowest probability
+error measures, whereas Chip achieved the highest FFD exact match. Because
 ship design is formulated as a constrained decision problem, its decision
 freedom is relatively limited; consequently, the evaluated model sizes did not
 show marked performance differences.
 
 \begin{table*}[t]
-\caption{Kev model-scale ablation on the 5,000-record benchmark. Question
-accuracy uses the successfully scored questions. FFD exact rate uses all
-requested turns. Best values in each column are bold.}
+\caption{Chip model-scale ablation on SDDBench. Question accuracy uses the
+successfully scored questions. FFD exact match uses all requested turns. Best values in each column are bold.}
 \label{tab:scale-ablation}
 \centering
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrr}
 \toprule
-Model & Completed records & Question accuracy & FFD exact rate & Negative log-likelihood & Expected calibration error & Brier score \\
+Model & Completed records & Question accuracy & FFD exact match & NLL & ECE & Brier score \\
 \midrule
-Kev-0.8B & 5,000 & 95.8962\% & \textbf{99.32\%} & 0.0951 & 0.0032 & 0.0551 \\
-Kev-2B   & 5,000 & \textbf{95.9192\%} & 99.30\% & \textbf{0.0948} & \textbf{0.0022} & \textbf{0.0548} \\
-Kev-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
+Chip & 5,000 & 95.8962\% & \textbf{99.32\%} & 0.0951 & 0.0032 & 0.0551 \\
+Chip-2B   & 5,000 & \textbf{95.9192\%} & 99.30\% & \textbf{0.0948} & \textbf{0.0022} & \textbf{0.0548} \\
+Chip-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 \bottomrule
 \end{tabular}%
 }
@@ -1086,29 +1105,28 @@ Kev-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 \subsubsection{Effect of Training Data Size}
 \label{sec:ablation-data}
 
-To assess the contribution of the training-set size, we held the Kev-0.8B
+To assess the contribution of the training-set size, we held the Chip
 architecture fixed and varied the amount of ship-design training data. Nested
-subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the original training
-dataset were sampled using a fixed random seed. Each smaller subset was contained
+subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the SDD Dataset training
+partition were sampled using a fixed random seed. Each smaller subset was contained
 in every larger subset. Each model was independently initialized from the same
 published Kev-0.8B checkpoint and trained for two epochs, with rank-16 low-rank
 adaptation, a peak learning rate of $2\times10^{-5}$, and an effective batch size
 of eight records. The full-data model used the same initialization and training
 configuration. With the epoch count fixed, the number of optimizer updates
-increased from 222 at 1\% to 22,152 at 100\%. The published checkpoint before
-ship-design adaptation supplied the 0\% reference.
+increased from 222 at 1\% to 22,152 at 100\%. Kev-Base supplied the 0\% reference before ship-design adaptation.
 
-All seven checkpoints were evaluated on the same 5,000-record benchmark
-using the probability-question and FFD action-scoring protocol described in
+All seven checkpoints were evaluated on SDDBench using the probability-question
+and FFD action-scoring protocol described in
 Section~\ref{sec:ship-decision-results}. Table~\ref{tab:data-scaling} combines
 the subset evaluations with the full-data result reported in
-Section~\ref{sec:ablation-scale}. Question accuracy uses successfully scored
-questions, while FFD exact match includes all 5,000 requested records.
+Section~\ref{sec:ablation-scale}. The question accuracy uses successfully scored questions, while FFD exact match
+includes all SDDBench records.
 
 \begin{table*}[t]
-\caption{Effect of ship-design training-data size on Kev-0.8B. Training share
-is relative to the original training dataset; the 0\% row evaluates the
-published checkpoint before ship-design adaptation. Accuracy values are
+\caption{Effect of SDD Dataset size on Chip. Training share is relative to the
+SDD Dataset training partition; the 0\% row evaluates Kev-Base before ship-design
+adaptation. Accuracy values are
 percentages. Lower values are preferred for NLL, ECE, and Brier score. Best
 values are shown in bold.}
 \label{tab:data-scaling}
@@ -1117,7 +1135,7 @@ values are shown in bold.}
 \begin{tabular}{rrrrrrr}
 \toprule
 \shortstack{Training\\share (\%)} & \shortstack{Training\\records} &
-\shortstack{Question\\accuracy $\uparrow$} & FFD exact $\uparrow$ &
+\shortstack{Question\\accuracy $\uparrow$} & FFD exact match $\uparrow$ &
 NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \midrule
 0   & 0      & 80.82 & 72.24 & 0.6972 & 0.1995 & 0.3439 \\
@@ -1133,14 +1151,14 @@ NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \end{table*}
 
 Ship-design adaptation produced a large initial improvement: the 1\% model
-reached 94.02\% Question accuracy and 96.86\% FFD exact match, compared with
+reached 94.02\% question accuracy and 96.86\% FFD exact match, compared with
 80.82\% and 72.24\% for the 0\% reference. Across the trained checkpoints from
 1\% to 100\%, both accuracies increased, while NLL, ECE, and Brier score
 decreased. The full-data model attained the best values in the table.
 
 The gains became smaller at larger data sizes, yet the full training set still
 produced the best measured performance. From 1\% to 100\% of the original
-training dataset, Question accuracy increased by 1.88 percentage points and FFD
+training dataset, question accuracy increased by 1.88 percentage points and FFD
 exact match increased by 2.46 percentage points, while NLL, ECE, and Brier score
 all decreased. Together with Section~\ref{sec:ablation-scale}, these results
 show that, for the ship-design decision task, expanding the training dataset
@@ -1191,7 +1209,7 @@ would align execution with the end-to-end criterion.
 
 \subsection{Why Large Language Models Fail in Ship Free-Form Deformation Decision Making}
 \label{sec:llm-failures}
-The benchmark places two coupled requirements on a language model: it must infer
+SDDBench places two coupled requirements on a language model: it must infer
 the ship-form action and serialize a complete typed probability response. The
 evaluator first receives the model response, parses JavaScript Object Notation
 (JSON), checks the required probability keys and value ranges, verifies that each
@@ -1211,37 +1229,34 @@ Malformed JSON and invalid numerical distributions occurred less frequently.
 These records establish that output serialization is a major source of failure
 for the small local models.
 
-Valid responses still contained decision errors. Question accuracy was 75.61\%
-for Qwen3, 66.97\% for Gemma3, and 63.94\% for Llama3.2, while FFD exact rates
+Valid responses still contained decision errors. The question accuracy was 75.61\%
+for Qwen3, 66.97\% for Gemma3, and 63.94\% for Llama3.2, while FFD exact match scores
 were 2.84\%, 15.98\%, and 2.16\%, respectively. The action metric uses all
 requested turns, so it incorporates both rejected responses and incorrect
 actions; the question metric isolates decisions that passed the probability
 checks. The two metrics together show separate costs for semantic action
 selection and strict response construction. The latency results add a system
 cost: the mean per-request latencies of these models ranged from 18.41 to
-25.28~s, while the specialized Kev-0.8B model required 118.01~ms under the same
-benchmark setting. A decision interface for ship-form editing therefore benefits
+25.28~s, while the Chip model required 118.01~ms under the same SDDBench setting. A decision interface for ship-form editing therefore benefits
 from training that jointly covers domain semantics, action ordering, constraint
 labels, and the required probability schema.
 
 \subsection{Specialized Model Scale and Data Efficiency}
 \label{sec:scale-efficiency}
 The scale and data ablations separate capacity from task-specific coverage. With
-the same ship-design data and evaluation protocol, increasing Kev from 0.8 billion
-to 2 billion and 4 billion parameters changed Question accuracy by only 0.0398
-percentage points across the three models. Kev-2B gave the highest Question
-accuracy and the best negative log-likelihood, expected calibration error, and
-Brier score, whereas Kev-0.8B gave the highest FFD exact rate. The close results
-show that the tested decision space can be represented by the smaller specialized
-model, and that additional parameters alone produced little movement in the
+the same SDD Dataset and evaluation protocol, increasing Chip from 0.8 billion
+to 2 billion and 4 billion parameters changed question accuracy by only 0.0398
+percentage points across the three models. Chip-2B gave the highest question
+accuracy and the best NLL, ECE, and Brier score, whereas Chip gave the highest FFD exact match. The close results
+show that the tested decision space can be represented by Chip, and that additional parameters alone produced little movement in the
 measured metrics.
 
 Training-data size had a stronger measured effect. Ship-design adaptation raised
-Question accuracy from 80.82\% at the 0\% reference to 94.02\% with 1\% of the
+question accuracy from 80.82\% at the 0\% reference to 94.02\% with 1\% of the
 original training dataset, followed by continued improvement through the full
-dataset. From 25\% to 100\%, Question accuracy increased from 95.66\% to 95.90\%
-and FFD exact match increased from 99.14\% to 99.32\%; negative log-likelihood,
-expected calibration error, and Brier score also decreased. The continued change
+dataset. From 25\% to 100\%, question accuracy increased from 95.66\% to 95.90\%
+and FFD exact match increased from 99.14\% to 99.32\%; NLL, ECE, and Brier
+score also decreased. The continued change
 at the largest evaluated data size indicates that the training examples supplied
 useful coverage for both action decisions and probability calibration.
 
@@ -1253,7 +1268,7 @@ capacity sufficient for the tested action space while placing high demands on
 label coverage, action ordering, and output regularity. The ablations therefore
 support a data--capacity trade-off in which task-specific data and a compatible
 output protocol provide larger gains than parameter growth across the tested
-range. The 0.8-billion-parameter specialized model combines this performance
+range. Chip combines this performance
 with the lowest measured inference latency, making it a practical capacity point
 for the evaluated decision interface.
 
@@ -1261,23 +1276,22 @@ for the evaluated decision interface.
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-This work defines ship-form editing as a discrete constrained decision problem
+This work presents NL2Hull Framework as a discrete constrained decision system
 and implements the complete path from natural-language requests to typed action
-probabilities, executable free-form deformation, and reconstructed hull checks.
-The system combines a NURBS waterline representation with an explicit action
-projection and a common evaluation protocol. On the 5,000-record benchmark,
-Kev-0.8B achieved 95.90\% question accuracy and 99.32\% FFD exact rate with
-well-calibrated probabilities. The representation study reduced the mean
+probabilities, executable FFD, and reconstructed hull checks through the CFFD
+Engine. The system combines a NURBS waterline representation with an explicit
+action projection and the SDDBench evaluation protocol. On SDDBench, Chip achieved 95.90\% question accuracy and 99.32\% FFD exact
+match with well-calibrated probabilities. The representation study reduced the mean
 stem-contour error to 0.000221 over 12 hulls, and the end-to-end study verified
 that the system can execute single edits and multi-turn edits on a KVLCC2 hull
 using 300 training-split experiments.
 
-The end-to-end experiments also identified a concrete geometry-engine limitation.
+The end-to-end experiments also identified a concrete CFFD Engine limitation.
 Displacement preservation is compensated at the action level, while the final
 turn is checked against the state at the beginning of the turn. Unconstrained
 actions composed with constrained actions can therefore alter the final volume,
 and strict deck-line checks can retain small numerical residuals after otherwise
-valid deformation. The geometry engine should be extended with composition-aware
+valid deformation. The CFFD Engine should be extended with composition-aware
 constraint handling, final-state projection, and tolerances linked to the
 reconstruction and meshing resolution. These changes would improve the
 flexibility and generality of sequential edits across hull forms and constraint
@@ -1288,8 +1302,8 @@ ordinal level and uses default regional extents; it does not predict an explicit
 continuous deformation magnitude or spatial extent. Future model development
 should add continuous numerical outputs, train them against geometric outcomes,
 and evaluate their calibration together with discrete action accuracy. A more
-flexible geometry engine and a continuous-control decision model would extend the
-present framework from validated typed edits toward broader ship-form design
+flexible CFFD Engine and a continuous-control decision model would extend
+NL2Hull Framework from validated typed edits toward broader ship-form design
 workflows.
 
 % -----------------------------------------------------------------------------
