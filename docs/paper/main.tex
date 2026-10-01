@@ -38,14 +38,33 @@
 \cortext[1]{Corresponding author}
 
 \begin{abstract}
-\todo{Write the structured problem--method--evidence--implication abstract after the
-main results and end-to-end evaluation are complete.}
+Ship-form design combines smooth geometric representation, local shape editing,
+and constraints on the resulting hull. We formulate natural-language ship-form
+editing as a typed discrete decision problem and connect it to a numerical
+geometry engine. The framework represents hull waterlines with non-uniform
+rational B-splines (NURBS), applies free-form deformation (FFD) to their control
+points, predicts probability distributions for typed action questions, and
+projects the answers into executable deformation actions. We construct a
+ship-design decision dataset and evaluate all compared models with a common
+probability-question and action-scoring protocol on 5,000 records containing
+43,496 typed questions. The specialized Kev-0.8B model reaches 95.90\% question
+accuracy and 99.32\% FFD exact rate, with a negative log-likelihood of 0.0951,
+an expected calibration error of 0.0032, and a Brier score of 0.0551. The
+NURBS representation ablation reduces the mean stem-contour root-mean-square
+error to 0.000221 over 12 classic hulls. End-to-end editing on a KVLCC2 hull
+achieves 100\% success for single edits, 60\% for multi-region single-turn
+edits, and 98\% for same-region two-turn edits; the lower multi-action rate
+reveals a mismatch between action-level constraint compensation and turn-level
+constraint verification in the current geometry engine. The framework therefore
+provides a reproducible interface for evaluating language-based ship-form
+decisions while identifying the geometry and continuous-control components that
+require further development.
 \end{abstract}
 
 \begin{highlights}
-\item \todo{State the NURBS-based constrained ship FFD decision problem.}
-\item \todo{State the typed natural-language decision framework and action decoder.}
-\item \todo{Report the strongest benchmark and geometric validation evidence.}
+\item Defines a NURBS-based discrete decision problem for constrained ship-form editing.
+\item Connects typed probability prediction to executable free-form deformation actions.
+\item Provides common benchmark, calibration, action-level, and end-to-end evaluations.
 \end{highlights}
 
 \begin{keywords}
@@ -58,51 +77,73 @@ NURBS \sep free-form deformation \sep ship design \sep natural language decision
 \section{Introduction}
 \label{sec:introduction}
 
-Ship-form design requires repeated geometric adjustments under coupled geometric
-and engineering constraints. Designers must modify local regions such as the bow,
-stern, bulb, deck, or bilge while preserving a valid hull representation and, when
-required, global properties such as symmetry, displacement, or the deck line.
-NURBS curves provide a compact representation for smooth ship-form geometry, and
-free-form deformation (FFD) provides a mechanism for applying localized or global
-changes. The remaining design difficulty is to express these geometric operations
-as reliable, interpretable decisions that can be selected from natural-language
-intent.
+Ship-form design relies on geometric representations that preserve smoothness
+while exposing parameters that naval architects can interpret and modify. Early
+parametric hull-form work combined naval-architecture features with non-uniform
+rational B-spline (NURBS) surfaces and used control-point manipulation to vary
+local hull zones~\citep{nam2000parametric}. Subsequent NURBS-based approaches
+addressed hull-surface skinning and feature-parameter deformation~\citep{shamsuddin2006skinning,zhou2022nurbs}.
+These studies establish a useful geometric foundation, while also showing that
+the quality of an editable hull depends on the choice of parameterization,
+continuity across regions, and the relation between geometric parameters and
+engineering requirements. A numerical hull representation alone does not specify
+which edit a designer intends or how a sequence of edits should be verified.
 
-Natural-language interfaces are attractive for iterative ship design because a
-designer can describe a target change without manually editing control points.
-However, unconstrained text generation does not directly guarantee a valid FFD
-action: the output must identify a compatible region and operation, select the
-number of actions, preserve the semantics of a multi-step interaction, and satisfy
-the geometric constraints imposed by the hull representation. This creates a
-decision problem at the interface between language understanding and geometric
-execution. A model that produces fluent text but selects an invalid action can
-still generate an unusable design operation.
+Free-form deformation provides a general mechanism for applying local and global
+changes to geometric models, with continuity control and volume-preserving
+constructions available within the deformation formulation~\citep{sederberg1986ffd}.
+In ship design, parametric generation and deformation have supported hull
+optimization and constrained hull generation. ShipGen produces parametric hull
+vectors under multiple objectives and constraints~\citep{bagazinski2023shipgen},
+and C-ShipGen conditions hull generation on design requirements and resistance
+information~\citep{bagazinski2024cshipgen}. These methods focus on generating or
+optimizing hull candidates from structured parameters and performance objectives.
+An interactive design system also needs to map a designer's language to a
+sequence of localized operations and then verify the resulting geometry after
+each sequence.
 
-This paper formulates that interface as a constrained decision problem for NURBS-
-based ship-form FFD. Given a hull state and a natural-language design intent, the
-framework represents the candidate operation through typed decisions over action
-count, region, operation, and related attributes. A decision model predicts a
-probability distribution for each typed question. The maximum-probability answers
-are projected into a canonical FFD action representation and passed to a geometric
-decoder. The decoder updates NURBS control parameters, reconstructs the hull, and
-checks the resulting geometry. This separation keeps language-level decision making
-and numerical geometry execution explicit and independently testable.
+Natural-language interfaces provide a route to this interaction. Early work on
+natural-language computer-aided design established the goal of translating design
+intent into parametric operations~\citep{samad1985cad}. Recent text-to-computer-aided-design
+systems generate sequential parametric models and evaluate geometric or
+parametric fidelity~\citep{khan2024text2cad}; visual-feedback training further
+connects generated sequences to rendered outcomes~\citep{wang2025cadfusion}.
+Language-grounded action systems similarly show that high-level instructions
+require an executable skill layer tied to the state of a physical environment
+~\citep{ahn2022saycan}. Typed decision models provide another relevant interface:
+they return choices, rubric scores, and probabilities for explicitly specified
+questions instead of unrestricted text~\citep{deusser2026jev}. Structured-output
+decoding methods also demonstrate that syntax and semantics of machine-readable
+outputs require explicit control during generation~\citep{scholak2021picard}.
+Together, these directions motivate a ship-specific interface in which language
+understanding, typed action selection, and geometric execution are evaluated as
+linked stages.
 
-The study makes the following contributions:
+We formulate this interface as a constrained discrete decision problem for
+NURBS-based ship-form free-form deformation. Given a hull state and a natural-
+language design request, the system predicts the action count, affected region,
+operation, qualitative magnitude, and preservation constraints as typed
+probability distributions. The highest-probability decisions are projected into
+an ordered action representation, applied to NURBS waterline control points, and
+checked through hull reconstruction, geometric validity, and constraint tests.
+This formulation separates language-level uncertainty from numerical geometry
+and permits a common evaluation of question accuracy, probability calibration,
+action exactness, and end-to-end editing.
+
+The study makes four contributions:
 \begin{enumerate}
-    \item It defines a NURBS-based ship-form FFD decision problem in which ship
-    editing intent is mapped to typed, engineering-interpretable deformation actions.
-    \item It develops a natural-language-driven decision framework that combines
-    typed probability prediction, action projection, sequential editing, and
-    constraint-aware geometric execution.
-    \item It constructs a ship design decision dataset and a frozen benchmark with a
-    common probability protocol, question-level metrics, calibration metrics, and
-    a shared action-level FFD score.
-    \item It compares specialized decision models, the native JEV decision model,
-    and general language models under the same benchmark protocol. The current
-    benchmark results provide the comparison in Section~\ref{sec:benchmark};
-    geometric end-to-end and ablation claims remain subject to the experiments
-    marked in Sections~\ref{sec:end-to-end} and~\ref{sec:ablations}.
+    \item It defines a reproducible NURBS-based decision task for translating
+    natural-language ship-form intent into interpretable free-form deformation
+    actions.
+    \item It implements a typed probability-to-action pipeline with sequential
+    deformation, hull reconstruction, and explicit geometric constraint checks.
+    \item It provides a ship-design dataset and a common benchmark protocol that
+    evaluates question accuracy, probability quality, action exactness, latency,
+    and end-to-end editing across specialized, typed-decision, and general
+    language models.
+    \item It analyzes geometric representation, specialized model scale, and
+    ship-design training-data size, and identifies the execution-level constraint
+    behavior and continuous-control capabilities that require further development.
 \end{enumerate}
 
 % -----------------------------------------------------------------------------
@@ -1217,22 +1258,38 @@ for the evaluated decision interface.
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-Summarize the bounded contribution: a NURBS-based constrained ship FFD decision
-problem and a natural-language-driven typed decision framework that can be
-assessed with a common probability and action protocol. State the strongest
-validated benchmark evidence, then identify the current boundary: the shared
-benchmark primarily evaluates typed decisions and their action projection, while
-full continuous parameter control, hydrodynamic objectives, and validated
-end-to-end design optimization require further experiments.
+This work defines ship-form editing as a discrete constrained decision problem
+and implements the complete path from natural-language requests to typed action
+probabilities, executable free-form deformation, and reconstructed hull checks.
+The system combines a NURBS waterline representation with an explicit action
+projection and a common evaluation protocol. On the 5,000-record benchmark,
+Kev-0.8B achieved 95.90\% question accuracy and 99.32\% FFD exact rate with
+well-calibrated probabilities. The representation study reduced the mean
+stem-contour error to 0.000221 over 12 hulls, and the end-to-end study verified
+that the system can execute single edits and multi-turn edits on a KVLCC2 hull.
 
-Future work should address explicit continuous magnitudes and spatial extents,
-stronger constraint and hydrodynamic coupling, expert-reviewed multi-turn design
-trajectories, unseen-hull generalization, and calibrated human-in-the-loop
-acceptance or rollback.
+The end-to-end experiments also identified a concrete geometry-engine limitation.
+Displacement preservation is compensated at the action level, while the final
+turn is checked against the state at the beginning of the turn. Unconstrained
+actions composed with constrained actions can therefore alter the final volume,
+and strict deck-line checks can retain small numerical residuals after otherwise
+valid deformation. The geometry engine should be extended with composition-aware
+constraint handling, final-state projection, and tolerances linked to the
+reconstruction and meshing resolution. These changes would improve the
+flexibility and generality of sequential edits across hull forms and constraint
+combinations.
+
+The current decision interface also represents qualitative magnitude through an
+ordinal level and uses default regional extents; it does not predict an explicit
+continuous deformation magnitude or spatial extent. Future model development
+should add continuous numerical outputs, train them against geometric outcomes,
+and evaluate their calibration together with discrete action accuracy. A more
+flexible geometry engine and a continuous-control decision model would extend the
+present framework from validated typed edits toward broader ship-form design
+workflows.
 
 % -----------------------------------------------------------------------------
-% Add references after the literature review has been completed.
-% \bibliographystyle{cas-model2-names}
-% \bibliography{references}
+\bibliographystyle{cas-model2-names}
+\bibliography{references}
 
 \end{document}
