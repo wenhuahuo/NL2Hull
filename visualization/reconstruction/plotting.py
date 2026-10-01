@@ -82,6 +82,8 @@ def plot_comparison(
     output_path: Path,
     *,
     show_titles: bool = True,
+    dpi: int = 180,
+    compact: bool = False,
 ) -> None:
     source = hull.mesh
     rebuilt = reconstruction
@@ -98,7 +100,12 @@ def plot_comparison(
         max(source.bounds[1, 2], rebuilt.bounds[1, 2]),
     )
 
-    fig, axes = plt.subplots(3, 2, figsize=(12, 12), constrained_layout=True)
+    fig, axes = plt.subplots(
+        3,
+        2,
+        figsize=(6 if compact else 12, 6 if compact else 12),
+        constrained_layout=True,
+    )
     ax = axes[0, 0]
     _gray_mesh(ax, source, 0, 1, 2)
     if show_titles:
@@ -162,7 +169,7 @@ def plot_comparison(
 
     if show_titles:
         fig.suptitle(f"{hull.hull_id}: STL → vertical NURBS parameterization → lofted hull")
-    fig.savefig(output_path, dpi=180)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
 
@@ -294,8 +301,12 @@ def plot_profile(
     output_path: Path,
     *,
     show_titles: bool = True,
+    dpi: int = 180,
+    compact: bool = False,
 ) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+    fig, axes = plt.subplots(
+        1, 2, figsize=(12, 3 if compact else 5), constrained_layout=True
+    )
     generated_stem, generated_stern = evaluate_profile_parameters(
         profile_parameter_vector(fit), samples=160
     )
@@ -331,8 +342,8 @@ def plot_profile(
         ax.set_xlabel("x / L")
         ax.set_ylabel("z / L")
         ax.set_aspect("equal")
-        ax.legend(fontsize=7, loc="upper right")
+        ax.legend(fontsize=7, loc="upper left" if ax is axes[0] else "upper right")
     if show_titles:
         fig.suptitle(f"{hull.hull_id}: center-plane stem/stern fixed-dimensional fit")
-    fig.savefig(output_path, dpi=180)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
