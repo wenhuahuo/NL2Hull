@@ -120,15 +120,15 @@ understanding, typed action selection, and geometric execution are evaluated as
 linked stages.
 
 We formulate this interface as a constrained discrete decision problem for
-NURBS-based ship-form free-form deformation. Given a hull state and a natural-
-language design request, the system predicts the action count, affected region,
-operation, qualitative magnitude, and preservation constraints as typed
-probability distributions. The highest-probability decisions are projected into
-an ordered action representation, applied to NURBS waterline control points, and
-checked through hull reconstruction, geometric validity, and constraint tests.
-This formulation separates language-level uncertainty from numerical geometry
-and permits a common evaluation of question accuracy, probability calibration,
-action exactness, and end-to-end editing.
+NURBS-based ship-form free-form deformation. Given a natural-language design
+request and a set of typed questions, the decision layer predicts the action
+count, affected region, operation, qualitative magnitude, and preservation
+constraints as probability distributions. The highest-probability decisions are
+projected into an ordered action representation, applied to a separately supplied
+NURBS waterline state, and checked through hull reconstruction, geometric validity,
+and constraint tests. This formulation separates language-level uncertainty from
+numerical geometry and permits a common evaluation of question accuracy,
+probability calibration, action exactness, and end-to-end editing.
 
 The study makes four contributions:
 \begin{enumerate}
@@ -138,9 +138,9 @@ The study makes four contributions:
     \item It implements a typed probability-to-action pipeline with sequential
     deformation, hull reconstruction, and explicit geometric constraint checks.
     \item It provides a ship-design dataset and a common benchmark protocol that
-    evaluates question accuracy, probability quality, action exactness, latency,
-    and end-to-end editing across specialized, typed-decision, and general
-    language models.
+    evaluates question accuracy, probability quality, action exactness, and
+    latency across specialized, typed-decision, and general language models,
+    while validating end-to-end editing with the specialized model.
     \item It analyzes geometric representation, specialized model scale, and
     ship-design training-data size, and identifies the execution-level constraint
     behavior and continuous-control capabilities that require further development.
