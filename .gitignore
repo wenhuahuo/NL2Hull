@@ -25,3 +25,9 @@ datasets/
 /docs/paper/pics/framework/nl2hull_framework.drawio.png
 /docs/paper/pics/framework/nl2hull_framework.svg
 /docs/paper/pics/framework/nl2hull_framework.pdf
+
+# Generated exports for the classic-hull overview figure.
+/visualization/classic_hull_overview/figure1_classic_hull_overview.svg
+/visualization/classic_hull_overview/figure1_classic_hull_overview.pdf
+/visualization/classic_hull_overview/figure1_classic_hull_overview.png
+/visualization/classic_hull_overview/figure1_classic_hull_overview.tiff
