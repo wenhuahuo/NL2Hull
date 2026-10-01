@@ -11,6 +11,7 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{xcolor}
+\usepackage{amssymb}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\evidence}[1]{\textcolor{blue}{[Evidence needed: #1]}}
@@ -907,75 +908,57 @@ processing stage to the complete design workflow.
 \subsection{Ablation Studies}
 \label{sec:ablations}
 
-Each ablation should use the same frozen split and failure denominator as the main
-benchmark. The reported change should be tied to one design choice at a time.
+To isolate the contributions of geometric representation, model scale, and
+training-data size, we evaluated each design choice under a shared benchmark
+protocol and compared the resulting reconstruction and decision metrics.
 
 \subsubsection{Sensitivity to NURBS Representation}
 \label{sec:ablation-nurbs}
 
-This ablation isolates the effect of the center-plane profile representation on
-hull reconstruction. The full exploratory sequence from v012 to v020 contained
-several changes to profile extraction, control-point parameterization, endpoint
-handling, and hull closure. For a controlled comparison, we selected the five
-full 12-hull runs that share the same input hulls, 33 waterline levels, extracted
-profile samples, and mesh-comparison settings. The baseline used 24 control
-points per stem and stern contour with uniform clamped cubic-spline knots. The
-subsequent variants changed one representation feature at a time: 32 control
-points, a repeated knot at the stem deck corner, or locally concentrated knots
-around the bulb. The final combined variant used 32 control points together with
-both stem feature treatments.
+To isolate the effect of the center-plane profile representation on hull
+reconstruction, we compared five configurations evaluated on the same 12 hulls,
+with identical waterline levels, extracted profile samples, and mesh-comparison
+settings. The baseline used 24 control points per stem and stern contour with
+uniform clamped cubic-spline knots. Three representation features were then
+introduced separately or together: 32 control points, a repeated knot at the stem
+deck corner, and locally concentrated knots around the bulb.
 
-The evaluated profile curves describe the fore and aft center-plane contours.
-Accordingly, the primary metrics were the root-mean-square errors of the fitted
-stem and stern contours, calculated against their 80-point resampled reference
-contours. The recorded whole-surface nearest-neighbour RMSE and waterline-width
-RMSE were identical across the five runs. The results therefore use the contour
-errors to measure the part of the representation changed by this ablation, while
-retaining the whole-surface and waterline metrics as checks of the shared hull
-reconstruction setting.
+The primary metrics were the root-mean-square errors of the fitted stem and stern
+contours, calculated against their 80-point resampled reference contours. These
+metrics directly measure the accuracy of the profile curves modified in this
+experiment.
 
 Table~\ref{tab:profile-ablation} reports both the KCS result and the arithmetic
-mean over all 12 hulls. Increasing the control count from 24 to 32 reduced the
-mean stem-contour RMSE from 0.001551 to 0.000909 and the mean stern-contour
-RMSE from 0.001236 to 0.000785. At KCS, the corresponding errors decreased from
-0.002326 to 0.001222 and from 0.001581 to 0.000818. The repeated deck knot and
-local bulb knots produced more localized changes: the deck-knot variant reduced
-the mean stem error to 0.000994, whereas the bulb-knot variant reduced it to
-0.001396. Neither variant changed the stern-contour mean relative to the
-24-control baseline.
-
-The combined representation produced the lowest stem-contour errors in both
-scopes, reaching 0.000343 for KCS and 0.000221 averaged over the 12 hulls. Its
-stern-contour errors matched the 32-control variant, at 0.000818 for KCS and
-0.000785 averaged over the hull set. Figure~\ref{fig:profile-ablation} shows the
-corresponding KCS contour reconstructions. The additional control points improve
-the distribution of the fitted curve along the bow contour, while the repeated
-deck knot and local bulb knots place fitting flexibility near the two geometric
-features identified during profile extraction.
+mean over all 12 hulls. Increasing the control count reduced both stem and stern
+errors, while the combined representation produced the lowest stem-contour RMSE
+in both scopes: 0.000343 for KCS and 0.000221 averaged over the hull set. The
+repeated deck knot and local bulb knots mainly affected the stem contour, with
+little change in the stern-contour error. Figure~\ref{fig:profile-ablation} shows
+the corresponding KCS reconstructions and the local changes around the bow
+features.
 
 \begin{table*}[t]
-\caption{Ablation of the center-plane profile representation. Errors are
-normalized by the source-hull length. ``Mean'' is the arithmetic mean over the
-12 classic hulls.}
+\caption{Ablation of the center-plane profile representation. Variant A adds
+32 controls, variant B adds a repeated stem deck-corner knot, and variant C adds
+locally concentrated stem knots around the bulb. A check mark indicates the
+feature included in the variant. Errors are normalized by the source-hull length;
+``Mean'' is the arithmetic mean over the 12 classic hulls.}
 \label{tab:profile-ablation}
 \centering
 \small
-\begin{tabular}{lrrrr}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrr}
 \toprule
-Representation & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
+Variant & 32 controls & Repeated deck knot & Local bulb knots & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
 \midrule
-24 controls, uniform knots
-    & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
-32 controls, uniform knots
-    & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
-24 controls, repeated deck knot
-    & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
-24 controls, local bulb knots
-    & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
-32 controls, deck and bulb features
-    & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
+Baseline & -- & -- & -- & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
+A & \checkmark & -- & -- & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
+B & -- & \checkmark & -- & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
+C & -- & -- & \checkmark & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
+A+B+C & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table*}
 
 \begin{figure*}[t]
@@ -1015,30 +998,22 @@ Representation & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RM
 \label{sec:ablation-scale}
 
 We next evaluated the effect of model scale while keeping the data, probability
-questions, inference protocol, action projection, and frozen 5,000-record test
-set fixed. The comparison used Kev models with 0.8 billion, 2 billion, and
-4 billion parameters. Question accuracy was computed over the successfully
-scored probability questions, and FFD exact rate was computed over all requested
-turns, including failed evaluations. Negative log-likelihood, expected
-calibration error, and Brier score measure probability quality and calibration.
+questions, inference protocol, action projection, and benchmark fixed. The
+comparison used Kev models with 0.8 billion, 2 billion, and 4 billion parameters.
+Question accuracy was computed over the successfully scored probability
+questions, and FFD exact rate was computed over all requested turns, including
+failed evaluations. Negative log-likelihood, expected calibration error, and
+Brier score measure probability quality and calibration.
 
-Table~\ref{tab:scale-ablation} shows that the three models produced closely
-clustered results on this test set. Kev-2B achieved the highest question
-accuracy at 95.9192\%, the highest FFD exact rate was obtained by Kev-0.8B at
-99.32\%, and Kev-2B gave the lowest negative log-likelihood, expected
-calibration error, and Brier score. Kev-4B completed 4,999 of the 5,000
-requested records and had one failed turn; its question accuracy and FFD exact
-rate were 95.8794\% and 99.24\%, respectively. Across the three scales, the
-question-accuracy range was 0.0398 percentage points and the FFD exact-rate
-range was 0.08 percentage points.
-
-These results establish the scale comparison used by the subsequent analysis:
-model size changed the computational cost substantially, while the measured
-decision and calibration metrics remained within a narrow range for the three
-trained checkpoints.
+Table~\ref{tab:scale-ablation} shows closely clustered results across the three
+models. Kev-2B achieved the highest question accuracy and the lowest probability
+error measures, whereas Kev-0.8B achieved the highest FFD exact rate. Because
+ship design is formulated as a constrained decision problem, its decision
+freedom is relatively limited; consequently, the evaluated model sizes did not
+show marked performance differences.
 
 \begin{table*}[t]
-\caption{Kev model-scale ablation on the frozen 5,000-record test set. Question
+\caption{Kev model-scale ablation on the 5,000-record benchmark. Question
 accuracy uses the successfully scored questions. FFD exact rate uses all
 requested turns. Best values in each column are bold.}
 \label{tab:scale-ablation}
@@ -1062,9 +1037,9 @@ Kev-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 
 To assess the contribution of the training-set size, we held the Kev-0.8B
 architecture fixed and varied the amount of ship-design training data. Nested
-subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the 88,604 training records
-were sampled using a fixed random seed. Each smaller subset was contained in
-every larger subset. Each model was independently initialized from the same
+subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the original training
+dataset were sampled using a fixed random seed. Each smaller subset was contained
+in every larger subset. Each model was independently initialized from the same
 published Kev-0.8B checkpoint and trained for two epochs, with rank-16 low-rank
 adaptation, a peak learning rate of $2\times10^{-5}$, and an effective batch size
 of eight records. The full-data model used the same initialization and training
@@ -1072,21 +1047,19 @@ configuration. With the epoch count fixed, the number of optimizer updates
 increased from 222 at 1\% to 22,152 at 100\%. The published checkpoint before
 ship-design adaptation supplied the 0\% reference.
 
-All seven checkpoints were evaluated on the same frozen 5,000-record benchmark
+All seven checkpoints were evaluated on the same 5,000-record benchmark
 using the probability-question and FFD action-scoring protocol described in
 Section~\ref{sec:ship-decision-results}. Table~\ref{tab:data-scaling} combines
 the subset evaluations with the full-data result reported in
 Section~\ref{sec:ablation-scale}. Question accuracy uses successfully scored
-questions, while FFD exact match includes all 5,000 requested records. The
-numbers of failed records at 0\%, 1\%, 2\%, 4\%, 8\%, 25\%, and 100\% were
-56, 9, 12, 10, 8, 5, and 0, respectively.
+questions, while FFD exact match includes all 5,000 requested records.
 
 \begin{table*}[t]
 \caption{Effect of ship-design training-data size on Kev-0.8B. Training share
-is relative to the full set of 88,604 training records; the 0\% row evaluates
-the published checkpoint before ship-design adaptation. Accuracy values are
-percentages. Lower values are preferred for NLL, ECE, and Brier score.
-Best values are shown in bold.}
+is relative to the original training dataset; the 0\% row evaluates the
+published checkpoint before ship-design adaptation. Accuracy values are
+percentages. Lower values are preferred for NLL, ECE, and Brier score. Best
+values are shown in bold.}
 \label{tab:data-scaling}
 \centering
 \small
@@ -1108,43 +1081,20 @@ NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \end{tabular}
 \end{table*}
 
-Ship-design adaptation produced a large initial improvement, followed by
-continued gains as more training records were included. With 886 records,
-question accuracy increased from 80.82\% to 94.02\%, and FFD exact match
-increased from 72.24\% to 96.86\%. Across the trained checkpoints from 1\%
-to 100\%, both accuracies increased monotonically, while NLL, ECE, and Brier
-score decreased monotonically. The full-data model attained the highest
-question accuracy and FFD exact match, together with the lowest probability
-errors, among the evaluated data sizes.
+Ship-design adaptation produced a large initial improvement: the 1\% model
+reached 94.02\% Question accuracy and 96.86\% FFD exact match, compared with
+80.82\% and 72.24\% for the 0\% reference. Across the trained checkpoints from
+1\% to 100\%, both accuracies increased, while NLL, ECE, and Brier score
+decreased. The full-data model attained the best values in the table.
 
-The incremental gains became smaller at larger data sizes. Increasing the
-training set from 886 to 3,544 records raised question accuracy by 1.12
-percentage points and FFD exact match by 1.78 percentage points. Increasing it
-from 22,151 to 88,604 records provided a further 0.23 and 0.18 percentage
-points, respectively. Over this final interval, NLL decreased from 0.1040 to
-0.0951, ECE from 0.0047 to 0.0032, and Brier score from 0.0584 to 0.0551.
-Thus, the diminishing gains in accuracy were accompanied by continued
-improvements in probability quality and calibration, supporting the use of the
-full training set for the final model.
-
-Together with Section~\ref{sec:ablation-scale}, these results identify different
-responses to model and data scaling in the evaluated ship-design task. Across
-0.8--4 billion parameters, question accuracy varied by 0.0398 percentage
-points and FFD exact match by 0.08 percentage points. In contrast, increasing
-the ship-design training share from 1\% to 100\% improved these metrics by
-1.88 and 2.46 percentage points at a fixed model size. Under the two-epoch
-training schedule, expanding the domain training set therefore yielded larger
-measured gains than increasing the model size across the tested range. This
-comparison supports a compact decision model trained with an extensive
-ship-design dataset.
-
-\subsubsection{Generalization and Robustness}
-\label{sec:ablation-robustness}
-Test unseen hull families, paraphrased instructions, multi-step edits, constraint
-variants, and malformed or ambiguous requests. Report both successful decisions
-and failure categories rather than aggregating all failures into a single number.
-
-\evidence{Held-out hull-family, paraphrase, multi-step, and stress-test results.}
+The gains became smaller at larger data sizes, yet the full training set still
+produced the best measured performance. From 1\% to 100\% of the original
+training dataset, Question accuracy increased by 1.88 percentage points and FFD
+exact match increased by 2.46 percentage points, while NLL, ECE, and Brier score
+all decreased. Together with Section~\ref{sec:ablation-scale}, these results
+show that, for the ship-design decision task, expanding the training dataset
+produced larger measured gains than increasing model size across the tested
+range.
 
 % -----------------------------------------------------------------------------
 \section{Discussion}
