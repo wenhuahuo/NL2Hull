@@ -61,10 +61,11 @@ def _colored_mesh(
     )
 
 
-def _side_view(ax, mesh, title: str, draft: float, limits) -> None:
+def _side_view(ax, mesh, title: str | None, draft: float, limits) -> None:
     _gray_mesh(ax, mesh, 0, 2, 1)
     draft_line = ax.axhline(draft, color="tab:red", linestyle="--", linewidth=0.8)
-    ax.set_title(title)
+    if title:
+        ax.set_title(title)
     ax.set_xlabel("x / L")
     ax.set_ylabel("z / L")
     ax.set_xlim(*limits[0])
@@ -79,6 +80,8 @@ def plot_comparison(
     reconstruction,
     metrics: dict,
     output_path: Path,
+    *,
+    show_titles: bool = True,
 ) -> None:
     source = hull.mesh
     rebuilt = reconstruction
@@ -98,7 +101,8 @@ def plot_comparison(
     fig, axes = plt.subplots(3, 2, figsize=(12, 12), constrained_layout=True)
     ax = axes[0, 0]
     _gray_mesh(ax, source, 0, 1, 2)
-    ax.set_title("Original STL plan view")
+    if show_titles:
+        ax.set_title("Original STL plan view")
     ax.set_xlabel("x / L")
     ax.set_ylabel("y / L")
     ax.set_xlim(*x_limits)
@@ -107,7 +111,8 @@ def plot_comparison(
 
     ax = axes[0, 1]
     _gray_mesh(ax, rebuilt, 0, 1, 2)
-    ax.set_title("Lofted gray-mesh plan view")
+    if show_titles:
+        ax.set_title("Lofted gray-mesh plan view")
     ax.set_xlabel("x / L")
     ax.set_ylabel("y / L")
     ax.set_xlim(*x_limits)
@@ -117,14 +122,14 @@ def plot_comparison(
     _side_view(
         axes[1, 0],
         source,
-        "Original STL side view",
+        "Original STL side view" if show_titles else None,
         hull.draft,
         (x_limits, z_limits),
     )
     _side_view(
         axes[1, 1],
         rebuilt,
-        "Lofted gray-mesh side view",
+        "Lofted gray-mesh side view" if show_titles else None,
         hull.draft,
         (x_limits, z_limits),
     )
@@ -135,7 +140,8 @@ def plot_comparison(
         x, width = evaluate_waterline(waterlines[index], samples=128)
         ax.plot(x, width, label=f"z={waterlines[index].z:.3f}")
         ax.plot(waterlines[index].x, waterlines[index].width, "k.", ms=1.2, alpha=0.35)
-    ax.set_title("Waterline extraction and NURBS fit")
+    if show_titles:
+        ax.set_title("Waterline extraction and NURBS fit")
     ax.set_xlabel("x / L")
     ax.set_ylabel("half breadth / L")
     ax.legend(fontsize=7, loc="upper right")
@@ -148,12 +154,14 @@ def plot_comparison(
         metrics["waterline_width_rmse"],
     ]
     ax.bar(names, values, color=["tab:blue", "tab:orange", "tab:green"])
-    ax.set_title("Error summary")
+    if show_titles:
+        ax.set_title("Error summary")
     ax.set_ylabel("normalized length")
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
     ax.grid(axis="y", alpha=0.25)
 
-    fig.suptitle(f"{hull.hull_id}: STL → vertical NURBS parameterization → lofted hull")
+    if show_titles:
+        fig.suptitle(f"{hull.hull_id}: STL → vertical NURBS parameterization → lofted hull")
     fig.savefig(output_path, dpi=180)
     plt.close(fig)
 
@@ -280,7 +288,13 @@ def plot_summary(rows: list[dict], output_path: Path) -> None:
     plt.close(fig)
 
 
-def plot_profile(hull: HullInput, fit: ProfileFit, output_path: Path) -> None:
+def plot_profile(
+    hull: HullInput,
+    fit: ProfileFit,
+    output_path: Path,
+    *,
+    show_titles: bool = True,
+) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
     generated_stem, generated_stern = evaluate_profile_parameters(
         profile_parameter_vector(fit), samples=160
@@ -312,11 +326,13 @@ def plot_profile(hull: HullInput, fit: ProfileFit, output_path: Path) -> None:
         pad = 0.02
         ax.set_xlim(points[:, 0].min() - pad, points[:, 0].max() + pad)
         ax.set_ylim(points[:, 1].min() - pad, points[:, 1].max() + pad)
-        ax.set_title(f"{name}  RMSE={nurbs['fit_rmse']:.4f} L")
+        if show_titles:
+            ax.set_title(f"{name}  RMSE={nurbs['fit_rmse']:.4f} L")
         ax.set_xlabel("x / L")
         ax.set_ylabel("z / L")
         ax.set_aspect("equal")
         ax.legend(fontsize=7, loc="upper right")
-    fig.suptitle(f"{hull.hull_id}: center-plane stem/stern fixed-dimensional fit")
+    if show_titles:
+        fig.suptitle(f"{hull.hull_id}: center-plane stem/stern fixed-dimensional fit")
     fig.savefig(output_path, dpi=180)
     plt.close(fig)
