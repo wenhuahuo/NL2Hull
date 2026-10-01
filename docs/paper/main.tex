@@ -865,45 +865,55 @@ number of accepted trajectories.
 \subsubsection{Evaluation time}
 \label{sec:end-to-end-latency}
 
-The evaluation time was separated into model processing and geometric processing.
-For model processing, the table reports the complete wall-clock duration of each
-5,000-record evaluation divided by 5,000. This measure includes model loading,
-request scheduling, model calls, retry waits, result writing, and metric
-aggregation, and therefore describes the average evaluation time per requested
-record under the recorded execution conditions. It uses the same denominator for
-all compared models, including records that ended in failure.
+Model and geometric processing were measured separately. For model processing,
+we used the per-request latency recorded by each evaluator rather than dividing
+whole-job wall-clock time by the number of records. The reported mean and
+95th-percentile values include the model request and the evaluator-side response
+handling; model initialization, result aggregation, and geometric processing are
+excluded. The API evaluators recorded latency for both successful and failed
+attempts, whereas the JEV output provided latency for its 4,322 completed
+requests. Table~\ref{tab:latency-results} follows the model grouping used in
+Table~\ref{tab:benchmark-outline} and places Kev-0.8B at the end of the
+language-decision group.
 
 \begin{table*}[t]
-\caption{Average wall-clock time per requested record in the 5,000-record
-evaluation. The reported value is the complete job duration divided by 5,000;
-it includes model loading, scheduling, retries, output writing, and aggregation.}
+\caption{Per-request model latency on the 5,000-record benchmark. Mean and
+95th-percentile latency are reported in milliseconds from the recorded evaluator
+outputs. The API evaluators timed failed attempts as well as successful attempts;
+the JEV latency statistics use its 4,322 completed requests.}
 \label{tab:latency-results}
 \centering
 \small
 \begin{tabular}{lrr}
 \toprule
-Model & Total evaluation time (s) & Average time per record (ms) \\
+Model & Mean latency (ms) & 95th percentile (ms) \\
 \midrule
-Kev-0.8B             & 596.20   & 119.24 \\
-Kev-2B               & 786.71   & 157.34 \\
-Kev-4B               & 1879.13  & 375.83 \\
-JEV                  & 7724.64  & 1544.93 \\
-DeepSeek V4.1 Flash  & 5806.57  & 1161.32 \\
-Claude Opus 5        & 9824.20  & 1964.84 \\
-GPT-5.6 Sol           & 20034.72 & 4006.94 \\
-Qwen3                & 15820.21 & 3164.04 \\
-Gemma3               & 11530.18 & 2306.04 \\
-Llama3.2              & 14143.34 & 2828.67 \\
+\multicolumn{3}{l}{\textit{Small language models}} \\
+Qwen3                & 25280.05 & 46745.65 \\
+Gemma3               & 18407.59 & 43119.55 \\
+Llama3.2             & 22589.78 & 44708.37 \\
+\hline
+\multicolumn{3}{l}{\textit{Flagship language models}} \\
+Claude Opus 5        & 7844.00  & 12531.86 \\
+GPT-5.6 Sol          & 16009.20 & 36265.54 \\
+DeepSeek V4.1 Flash  & 4630.63  & 11131.43 \\
+\hline
+\multicolumn{3}{l}{\textit{Language decision models}} \\
+JEV                  & 1510.33  & 2908.01 \\
+Kev-0.8B (Ours)      & 118.01   & 235.55 \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-The geometric processing stage required approximately 0.13 s per end-to-end
-experiment on average. The category-specific means were 0.114 s for a single
-edit, 0.123 s for a multi-region single-turn edit, and 0.148 s for a same-region
-two-turn edit. Thus, after the decision stage, NURBS deformation, hull
-reconstruction, and geometric checks added a short and directly measurable
-processing stage to the complete design workflow.
+The specialized Kev model had the lowest recorded latency, with a mean of
+118.01 ms and a 95th-percentile latency of 235.55 ms. JEV was the next fastest
+language-decision model, while the flagship and small language models required
+longer per-request processing under the evaluated settings. The geometric
+processing stage added approximately 0.13 s per end-to-end experiment on
+average: 0.114 s for a single edit, 0.123 s for a multi-region single-turn edit,
+and 0.148 s for a same-region two-turn edit. These measurements separate the
+model decision time from the subsequent NURBS deformation, hull reconstruction,
+and geometric checks.
 
 \subsection{Ablation Studies}
 \label{sec:ablations}
