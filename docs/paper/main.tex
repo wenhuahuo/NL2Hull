@@ -1160,7 +1160,10 @@ both reached 100\%. Among the 45 experiments containing at least one constraint,
 39 violated a constraint. Same-region two-turn editing reached 98\% success, with
 two additional constraint violations. The concentration of failures in the
 constraint stage points to the semantics of sequential constraint handling as a
-central factor in the end-to-end result.
+central factor in the end-to-end result. The evaluation used 300 experiments and
+400 requests sampled from the training split, so it tests pipeline execution on
+known request patterns; performance on unseen hulls and unseen requests requires
+a separate evaluation.
 
 The implementation applies actions sequentially and performs displacement
 compensation inside each constrained action. Before such an action, the executor
@@ -1266,7 +1269,8 @@ projection and a common evaluation protocol. On the 5,000-record benchmark,
 Kev-0.8B achieved 95.90\% question accuracy and 99.32\% FFD exact rate with
 well-calibrated probabilities. The representation study reduced the mean
 stem-contour error to 0.000221 over 12 hulls, and the end-to-end study verified
-that the system can execute single edits and multi-turn edits on a KVLCC2 hull.
+that the system can execute single edits and multi-turn edits on a KVLCC2 hull
+using 300 training-split experiments.
 
 The end-to-end experiments also identified a concrete geometry-engine limitation.
 Displacement preservation is compensated at the action level, while the final
