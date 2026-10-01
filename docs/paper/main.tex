@@ -1029,7 +1029,7 @@ accuracy at 95.9192\%, the highest FFD exact rate was obtained by Kev-0.8B at
 calibration error, and Brier score. Kev-4B completed 4,999 of the 5,000
 requested records and had one failed turn; its question accuracy and FFD exact
 rate were 95.8794\% and 99.24\%, respectively. Across the three scales, the
-question-accuracy range was 0.0400 percentage points and the FFD exact-rate
+question-accuracy range was 0.0398 percentage points and the FFD exact-rate
 range was 0.08 percentage points.
 
 These results establish the scale comparison used by the subsequent analysis:
@@ -1059,12 +1059,84 @@ Kev-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 
 \subsubsection{Effect of Training Data Size}
 \label{sec:ablation-data}
-Evaluate checkpoints trained with controlled fractions of the training data. Keep
-architecture and optimization settings fixed, and plot performance against the
-number of training examples.
 
-\evidence{Controlled data-size checkpoints and a reproducible training-data
-schedule.}
+To assess the contribution of the training-set size, we held the Kev-0.8B
+architecture fixed and varied the amount of ship-design training data. Nested
+subsets containing 1\%, 2\%, 4\%, 8\%, and 25\% of the 88,604 training records
+were sampled using a fixed random seed. Each smaller subset was contained in
+every larger subset. Each model was independently initialized from the same
+published Kev-0.8B checkpoint and trained for two epochs, with rank-16 low-rank
+adaptation, a peak learning rate of $2\times10^{-5}$, and an effective batch size
+of eight records. The full-data model used the same initialization and training
+configuration. With the epoch count fixed, the number of optimizer updates
+increased from 222 at 1\% to 22,152 at 100\%. The published checkpoint before
+ship-design adaptation supplied the 0\% reference.
+
+All seven checkpoints were evaluated on the same frozen 5,000-record benchmark
+using the probability-question and FFD action-scoring protocol described in
+Section~\ref{sec:ship-decision-results}. Table~\ref{tab:data-scaling} combines
+the subset evaluations with the full-data result reported in
+Section~\ref{sec:ablation-scale}. Question accuracy uses successfully scored
+questions, while FFD exact match includes all 5,000 requested records. The
+numbers of failed records at 0\%, 1\%, 2\%, 4\%, 8\%, 25\%, and 100\% were
+56, 9, 12, 10, 8, 5, and 0, respectively.
+
+\begin{table*}[t]
+\caption{Effect of ship-design training-data size on Kev-0.8B. Training share
+is relative to the full set of 88,604 training records; the 0\% row evaluates
+the published checkpoint before ship-design adaptation. Accuracy values are
+percentages. Lower values are preferred for NLL, ECE, and Brier score.
+Best values are shown in bold.}
+\label{tab:data-scaling}
+\centering
+\small
+\begin{tabular}{rrrrrrr}
+\toprule
+\shortstack{Training\\share (\%)} & \shortstack{Training\\records} &
+\shortstack{Question\\accuracy $\uparrow$} & FFD exact $\uparrow$ &
+NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
+\midrule
+0   & 0      & 80.82 & 72.24 & 0.6972 & 0.1995 & 0.3439 \\
+1   & 886    & 94.02 & 96.86 & 0.1729 & 0.0179 & 0.0850 \\
+2   & 1,772  & 94.57 & 97.88 & 0.1533 & 0.0110 & 0.0754 \\
+4   & 3,544  & 95.13 & 98.64 & 0.1331 & 0.0105 & 0.0682 \\
+8   & 7,088  & 95.39 & 98.82 & 0.1196 & 0.0097 & 0.0642 \\
+25  & 22,151 & 95.66 & 99.14 & 0.1040 & 0.0047 & 0.0584 \\
+100 & 88,604 & \textbf{95.90} & \textbf{99.32} & \textbf{0.0951} &
+\textbf{0.0032} & \textbf{0.0551} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Ship-design adaptation produced a large initial improvement, followed by
+continued gains as more training records were included. With 886 records,
+question accuracy increased from 80.82\% to 94.02\%, and FFD exact match
+increased from 72.24\% to 96.86\%. Across the trained checkpoints from 1\%
+to 100\%, both accuracies increased monotonically, while NLL, ECE, and Brier
+score decreased monotonically. The full-data model attained the highest
+question accuracy and FFD exact match, together with the lowest probability
+errors, among the evaluated data sizes.
+
+The incremental gains became smaller at larger data sizes. Increasing the
+training set from 886 to 3,544 records raised question accuracy by 1.12
+percentage points and FFD exact match by 1.78 percentage points. Increasing it
+from 22,151 to 88,604 records provided a further 0.23 and 0.18 percentage
+points, respectively. Over this final interval, NLL decreased from 0.1040 to
+0.0951, ECE from 0.0047 to 0.0032, and Brier score from 0.0584 to 0.0551.
+Thus, the diminishing gains in accuracy were accompanied by continued
+improvements in probability quality and calibration, supporting the use of the
+full training set for the final model.
+
+Together with Section~\ref{sec:ablation-scale}, these results identify different
+responses to model and data scaling in the evaluated ship-design task. Across
+0.8--4 billion parameters, question accuracy varied by 0.0398 percentage
+points and FFD exact match by 0.08 percentage points. In contrast, increasing
+the ship-design training share from 1\% to 100\% improved these metrics by
+1.88 and 2.46 percentage points at a fixed model size. Under the two-epoch
+training schedule, expanding the domain training set therefore yielded larger
+measured gains than increasing the model size across the tested range. This
+comparison supports a compact decision model trained with an extensive
+ship-design dataset.
 
 \subsubsection{Generalization and Robustness}
 \label{sec:ablation-robustness}
