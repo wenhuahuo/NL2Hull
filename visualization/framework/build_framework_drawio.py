@@ -110,6 +110,7 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
         "region": _data_uri(asset_dir / "kcs_region.png", "image/png"),
         "operation": _data_uri(asset_dir / "kcs_operation.png", "image/png"),
         "parameters": _data_uri(asset_dir / "kcs_parameters.png", "image/png"),
+        "profiles": _data_uri(asset_dir / "kcs_nurbs_profiles.png", "image/png"),
     }
 
     # Figure canvas and (a) title strip.
@@ -175,8 +176,11 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
     text(root, new(), 342, 528, 192, 28, "30k FFD records", size=13, align="right")
     for x, label, key in [(20, "Region", "region"), (182, "Operation", "operation"), (344, "Parameters", "parameters")]:
         rect(root, new(), x, 561, 150, 119, "#ffffff", "#f1e1d2", rounded=True)
-        image(root, new(), x + 9, 570, 132, 76, uri[key])
-        text(root, new(), x + 8, 646, 134, 25, label, size=13, bold=True)
+        image_height = 58 if key == "parameters" else 76
+        image(root, new(), x + 9, 570, 132, image_height, uri[key])
+        if key == "parameters":
+            text(root, new(), x + 8, 626, 134, 23, "region=bulb<br/>operation=outward<br/>level=5 (0.12)", color=GREEN, size=6)
+        text(root, new(), x + 8, 650 if key == "parameters" else 646, 134, 22, label, size=13, bold=True)
     rect(root, new(), 506, 561, 34, 119, "#ffffff", "#f1e1d2", rounded=True)
     text(root, new(), 506, 601, 34, 30, "⋯", size=20)
 
@@ -235,27 +239,7 @@ def build(output: Path, asset_dir: Path, chat: Path, chip: Path) -> None:
         rect(root, new(), 1134, yy + 10, 38, 38, "#4d9bd8", "#4d9bd8", rounded=True, value=number, font_size=18, bold=True)
         text(root, new(), 1182, yy + 10, 330, 28, label, size=14, bold=True, align="left")
 
-    image(root, new(), 1190, 438, 190, 78, uri["hull"])
-    text(root, new(), 1385, 427, 80, 20, "Bow profile", size=9)
-    text(root, new(), 1480, 427, 95, 20, "Midship profile", size=9)
-    text(root, new(), 1583, 427, 70, 20, "Stern profile", size=9)
-    for base_x, shape in [(1403, "bow"), (1503, "mid"), (1602, "stern")]:
-        # Editable profile schematics: polygonal curves and control points.
-        pts = [(base_x, 475), (base_x + 20, 460), (base_x + 20, 492), (base_x, 475)] if shape == "bow" else [(base_x, 460), (base_x + 26, 451), (base_x + 26, 499), (base_x, 492), (base_x, 460)]
-        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-            text(
-                root,
-                new(),
-                min(x0, x1),
-                min(y0, y1),
-                abs(x1 - x0) + 4,
-                abs(y1 - y0) + 4,
-                "╱" if y1 != y0 else "─",
-                color=BLUE,
-                size=12,
-            )
-        for px, py in pts[:-1]:
-            dot(root, new(), px - 3, py - 3, 6, BLUE)
+    image(root, new(), 1188, 426, 450, 100, uri["profiles"])
 
     image(root, new(), 1190, 590, 430, 90, uri["operation"])
     image(root, new(), 1190, 741, 430, 90, uri["hull"])
