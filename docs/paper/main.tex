@@ -46,24 +46,18 @@ Its Constrained Free-Form Deformation Engine (CFFD Engine) represents hull
 waterlines with non-uniform rational B-splines (NURBS), applies free-form
 deformation (FFD) to their control points, reconstructs the hull, and checks
 geometric constraints. We construct the Ship Design Decision Dataset (SDD
-Dataset) with 134,558 cleaned records and evaluate compared models on its frozen
+Dataset) with 134,558 cleaned records and evaluate compared models on its subset
 Ship Design Decision Benchmark (SDDBench), containing 5,000 records and 43,496
-typed questions. The
-ship-design-adapted Chip model, initialized from Kev-0.8B, reaches 95.90\%
+typed questions. We proposed constrained ship design model named Chip to process language, it reaches 95.90\%
 question accuracy and 99.32\% FFD exact match, with a negative log-likelihood of
 0.0951, an expected calibration error of 0.0032, and a Brier score of 0.0551.
-The NURBS representation ablation reduces the mean stem-contour root-mean-square
-error to 0.000221 over 12 classic hulls. End-to-end editing on a KVLCC2 hull
-achieves 100\% success for single edits, 60\% for multi-region single-turn
-edits, and 98\% for same-region two-turn edits; the lower multi-action rate
-reveals a mismatch between action-level constraint compensation and turn-level
-constraint verification in the CFFD Engine. The NL2Hull Framework provides a reproducible interface for evaluating language-based ship-form decisions while
+The NL2Hull Framework provides a reproducible interface for evaluating language-based ship-form decisions while
 identifying the geometry and continuous-control components that require further
 development.
 \end{abstract}
 
 \begin{highlights}
-\item Defines a spline-based discrete decision problem for constrained ship-form editing.
+\item Defines a NURBS-based discrete decision problem for constrained ship-form editing.
 \item Connects typed probability prediction to executable free-form deformation actions.
 \item Provides common benchmark, calibration, action-level, and end-to-end evaluations.
 \end{highlights}
@@ -133,38 +127,41 @@ Together, these directions motivate a ship-specific interface in which language
 understanding, typed action selection, and geometric execution are evaluated as
 linked stages.
 
-We call the complete system the Natural-Language-to-Hull Framework (NL2Hull
-Framework). Its decision layer formulates ship-form editing as a constrained
-discrete problem for NURBS-based FFD. Given a natural-language design request
-and a set of typed questions, the decision layer predicts the action count,
-affected region, operation, qualitative magnitude, and preservation constraints
-as probability distributions. The highest-probability decisions are projected
-into an ordered action representation, applied to a separately supplied NURBS
-waterline state by the Constrained Free-Form Deformation Engine (CFFD Engine),
-and checked through hull reconstruction,
-geometric validity, and constraint tests. This formulation separates language-
-level uncertainty from numerical geometry and permits a common evaluation of
-question accuracy, probability calibration, action exactness, and end-to-end
-editing. In this paper, the ship-design-adapted 0.8-billion-parameter model is
-called Chip, combining ``Constrained'' with the final three letters of ``ship''.
-Its larger variants are Chip-2B and Chip-4B; Kev-Base denotes the published
-Kev-0.8B checkpoint before ship-design adaptation. The cleaned natural-language collection is the
-Ship Design Decision Dataset (SDD Dataset), and its frozen evaluation subset is
-SDDBench, the Ship Design Decision Benchmark.
+To connect design intent with executable ship-form edits, we propose the
+Natural-Language-to-Hull Framework (NL2Hull Framework). At its core is Chip, a
+ship-design decision model developed by adapting Kev-0.8B to natural-language
+editing requests. Chip serves as the decision layer between the designer's
+language and the geometric operations. This role is motivated by the structure
+of ship-form editing: designers often express changes qualitatively, while each
+edit requires a choice of region, operation, magnitude level, and preservation
+constraints. We therefore formulate language interpretation as a set of typed
+decisions over a predefined action vocabulary. Given a request and these
+questions, Chip predicts probability distributions for the action count and
+attributes of each ordered action, translating design intent into discrete
+editing decisions while retaining uncertainty for calibration assessment.
+The highest-probability answers are then converted into actions for the
+Constrained Free-Form Deformation Engine (CFFD Engine), which applies them to a
+separately supplied NURBS hull representation. Finally, hull reconstruction and
+geometric constraint checks connect the predicted decisions to the resulting
+ship form. Together, Chip and the CFFD Engine link language interpretation,
+sequential editing, and geometric verification within a single framework.
 
 The study makes four contributions:
 \begin{enumerate}
-    \item It defines a reproducible NURBS-based decision task for translating
+    \item We define a NURBS-based decision task for translating
     natural-language ship-form intent into interpretable FFD actions.
-    \item It implements NL2Hull Framework with the CFFD Engine, including typed
-    probability-to-action projection, sequential deformation, hull reconstruction,
-    and explicit geometric constraint checks.
-    \item It constructs the SDD Dataset and SDDBench evaluation protocol for
-    question accuracy, probability quality, FFD exact match, and latency across
-    Chip, JEV, and general language models, while validating end-to-end editing
-    with Chip.
-    \item It analyzes representation, Chip model scale, and SDD Dataset size, and
-    identifies constraint and continuous-control issues for future development.
+    \item We propose Chip, a ship-design-adapted decision model that converts
+    natural-language requests into ordered discrete editing decisions and
+    predicts probabilities for action choices, qualitative magnitude levels,
+    and preservation constraints.
+    \item We implement NL2Hull Framework with the CFFD Engine to connect Chip's
+    decisions to sequential deformation, hull reconstruction, and geometric
+    constraint checks.
+    \item We construct the Ship Design Decision Dataset (SDD Dataset) and its
+    Ship Design Decision Benchmark (SDDBench), with a common evaluation protocol
+    for question accuracy, probability quality, FFD exact match, and latency
+    across Chip, JEV, and general language models. We further validate end-to-end
+    editing with Chip.
 \end{enumerate}
 
 % -----------------------------------------------------------------------------
