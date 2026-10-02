@@ -639,24 +639,28 @@ for the first two operations and span the complete hull for the third operation.
 
 \begin{figure*}[t]
     \centering
-    \begin{subfigure}[t]{0.31\textwidth}
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/local_bow_outward/comparison.png}
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/figure4_clean/local_bow_outward.png}
         \caption{Bow outward.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/local_bulb_forward/comparison.png}
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/figure4_clean/local_bulb_forward.png}
         \caption{Bulb forward.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/cases/global_increase_breadth/comparison.png}
+        \includegraphics[width=\linewidth]{../../outputs/v022_ffd_action_visualization_bulb_fix/figure4_clean/global_increase_breadth.png}
         \caption{Global breadth increase.}
     \end{subfigure}
     \caption{Representative FFD operations applied to the fitted KVLCC2 hull.
     Each panel compares the original fitted hull with the hull obtained after the
-    indicated control-point deformation.}
+    indicated control-point deformation. In each row, the left column shows the
+    original hull and the right column overlays the deformed hull (blue) on the
+    original hull (gray); plan views are above side views.}
     \label{fig:ffd-representative}
 \end{figure*}
 
@@ -900,24 +904,29 @@ same three interaction categories.
 
 \begin{figure*}[t]
     \centering
-    \begin{subfigure}[t]{0.31\textwidth}
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_single.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure5_clean/end2end_single.png}
         \caption{Single edit.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_multi_region_single_turn.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure5_clean/end2end_multi_region_single_turn.png}
         \caption{Multi-action edit.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_same_region_two_turns.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure5_clean/end2end_same_region_two_turns.png}
         \caption{Continuous two-turn edit.}
     \end{subfigure}
     \caption{Representative end-to-end ship-form editing cases. Each panel
     connects a natural-language instruction to the original and modified KVLCC2
-    hulls in plan and side views.}
+    hulls in plan and side views. Each interaction category occupies one row,
+    with the original hull on the left and the modified hull (blue) on the right;
+    red curves trace sections of the original hull. The displayed instructions
+    are English translations of the evaluated Chinese requests.}
     \label{fig:end2end-primary}
 \end{figure*}
 
