@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate compact Figure 4/5 panels from stored meshes, without re-evaluation.
+"""Regenerate compact Figure 4/5/6 panels from stored meshes, without re-evaluation.
 
 All cases/experiment IDs are preserved. Each case occupies a full-width row in
 LaTeX. Column/view semantics belong in the caption, not repeated plot titles.
@@ -79,14 +79,17 @@ def render_case(original, changed, output: Path, prompts=None) -> None:
     arrow = fig.add_subplot(grid[:, 1])
     arrow.set_axis_off()
     if end_to_end:
-        lines = []
+        if len(prompts) > 2:
+            raise ValueError("The publication layout supports one or two turns")
         for index, prompt in enumerate(prompts, 1):
             text = _english_prompt(prompt)
             if len(prompts) > 1:
                 text = f"{index}. {text}"
-            lines.extend(textwrap.wrap(text, width=30))
-        arrow.text(.5, .58, "\n".join(lines), ha="center", va="center",
-                   fontsize=6.5, linespacing=1.1, transform=arrow.transAxes)
+            lines = textwrap.wrap(text, width=30)
+            above = index == 1
+            arrow.text(.5, .55 if above else .45, "\n".join(lines), ha="center",
+                       va="bottom" if above else "top", fontsize=6.5,
+                       linespacing=1.1, transform=arrow.transAxes)
     arrow.annotate("", xy=(.98, .50), xytext=(.02, .50),
                    xycoords="axes fraction",
                    arrowprops={"arrowstyle": "-|>", "lw": .9, "color": ".3"})
@@ -100,8 +103,10 @@ def main() -> None:
                          "axes.linewidth": .5, "legend.fontsize": 6})
     ffd_output = FFD_RUN / "figure4_clean"
     e2e_output = E2E_RUN / "figure5_clean"
+    alternative_output = E2E_RUN / "figure6_clean"
     ffd_output.mkdir(exist_ok=True)
     e2e_output.mkdir(exist_ok=True)
+    alternative_output.mkdir(exist_ok=True)
     entries = []
     base_path = FFD_RUN / "original_fitted_nurbs_hull.stl"
     original = trimesh.load_mesh(base_path, process=False)
@@ -120,19 +125,23 @@ def main() -> None:
     original_path = E2E_RUN / "meshes/base.stl"
     original = trimesh.load_mesh(original_path, process=False)
     entries = []
+    alternatives = []
     for entry in selected:
-        if Path(entry["figure"]).stem.endswith("_alt"):
-            continue
+        is_alternative = Path(entry["figure"]).stem.endswith("_alt")
+        target = alternative_output if is_alternative else e2e_output
         experiment = experiments[entry["experiment_id"]]
         source = E2E_RUN / "meshes" / f"{entry['experiment_id']}.stl"
         render_case(original, trimesh.load_mesh(source, process=False),
-                    e2e_output / Path(entry["figure"]).name, experiment["prompts"])
-        entries.append({"category": entry["category"],
+                    target / Path(entry["figure"]).name, experiment["prompts"])
+        (alternatives if is_alternative else entries).append({"category": entry["category"],
                         "experiment_id": entry["experiment_id"],
                         "mesh_sha256": sha256(source), "base_sha256": sha256(original_path),
                         "prompts": experiment["prompts"]})
     (e2e_output / "manifest.json").write_text(json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
-    print("Regenerated three Figure 4 panels and three Figure 5 panels at 300 dpi.")
+    (alternative_output / "manifest.json").write_text(
+        json.dumps(alternatives, indent=2, ensure_ascii=False) + "\n"
+    )
+    print("Regenerated three panels each for Figures 4, 5, and 6 at 300 dpi.")
 
 
 if __name__ == "__main__":

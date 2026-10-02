@@ -972,24 +972,28 @@ number of accepted trajectories.
 
 \begin{figure*}[t]
     \centering
-    \begin{subfigure}[t]{0.31\textwidth}
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_single_alt.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure6_clean/end2end_single_alt.png}
         \caption{Single edit.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_multi_region_single_turn_alt.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure6_clean/end2end_multi_region_single_turn_alt.png}
         \caption{Multi-action edit.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.31\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figures/end2end_same_region_two_turns_alt.png}
+        \includegraphics[width=\linewidth]{../../outputs/end2end_kvlcc2_kev08/figure6_clean/end2end_same_region_two_turns_alt.png}
         \caption{Continuous two-turn edit.}
     \end{subfigure}
     \caption{Alternative representative end-to-end editing cases from the same
     three interaction categories. The paired views show the original hull,
-    natural-language instruction, and reconstructed modified hull.}
+    natural-language instruction, and reconstructed modified hull. Original hulls
+    are on the left and modified hulls (blue) are on the right; red lines trace
+    sections of the original hull. Arrows indicate the editing direction.}
     \label{fig:end2end-alternative}
 \end{figure*}
 
@@ -1099,34 +1103,39 @@ A+B+C & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000
 
 \begin{figure*}[t]
     \centering
-    \begin{subfigure}[t]{0.19\textwidth}
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v014_fixed_profile_parameters/hulls/KCS/profile_stem_stern.png}
+        \includegraphics[width=\linewidth]{../../outputs/profile_ablation_figure7/baseline.png}
         \caption{24 controls.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.19\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v015_fixed_profile_32_controls/hulls/KCS/profile_stem_stern.png}
+        \includegraphics[width=\linewidth]{../../outputs/profile_ablation_figure7/controls32.png}
         \caption{32 controls.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.19\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v016_fixed_profile_deck_corner_knot/hulls/KCS/profile_stem_stern.png}
+        \includegraphics[width=\linewidth]{../../outputs/profile_ablation_figure7/deck_knot.png}
         \caption{Deck knot.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.19\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v017_fixed_profile_bulb_local_knots/hulls/KCS/profile_stem_stern.png}
+        \includegraphics[width=\linewidth]{../../outputs/profile_ablation_figure7/bulb_knots.png}
         \caption{Bulb knots.}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.19\textwidth}
+    \end{subfigure}
+    \par\smallskip
+    \begin{subfigure}[t]{0.98\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../outputs/v018b_fixed_profile_combined_features/hulls/KCS/profile_stem_stern.png}
+        \includegraphics[width=\linewidth]{../../outputs/profile_ablation_figure7/combined.png}
         \caption{Combined.}
     \end{subfigure}
     \caption{KCS center-plane profile reconstruction for the five controlled
     representation variants. Each panel compares the extracted stem and stern
-    contours with their fitted cubic-spline curves.}
+    contours with their fitted cubic-spline curves. Variants occupy separate rows,
+    with stem contours on the left and stern contours on the right.}
     \label{fig:profile-ablation}
 \end{figure*}
 
