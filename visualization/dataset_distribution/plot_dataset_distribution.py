@@ -41,8 +41,8 @@ QUESTION_KEYS = (
     "ship_magnitude_mode", "ship_magnitude_level", "ship_constraint",
 )
 QUESTION_LABELS = (
-    "Action count", "Region", "Operation", "Magnitude mode",
-    "Magnitude level", "Constraint",
+    "Action count", "Region", "Operation", "Magnitude\nmode",
+    "Magnitude\nlevel", "Constraint",
 )
 CLUSTER_LABELS = {
     "long_context": "Long, context-rich\nengineering prompts",
@@ -209,8 +209,10 @@ def plot_radar(sdd: Counter, sdd_records: int, bench: Counter,
     angles = np.r_[angles, angles[0]]
     values_sdd = np.r_[values_sdd, values_sdd[0]]
     values_bench = np.r_[values_bench, values_bench[0]]
-    fig = plt.figure(figsize=(4.8, 4.5), facecolor="white")
-    ax = fig.add_axes((.06, .07, .88, .68), polar=True)
+    # The taller canvas compensates for the narrower right-hand subfigure so
+    # the visible radar panel has the same rendered height as the PCA panel.
+    fig = plt.figure(figsize=(4.8, 6.0), facecolor="white")
+    ax = fig.add_axes((.06, .08, .88, .81), polar=True)
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
     ax.plot(angles, values_sdd, color="#D97706", lw=1.6)
