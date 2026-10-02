@@ -40,26 +40,30 @@ def relabel_closure(source_path: Path, output_path: Path) -> None:
     image = Image.open(source_path).convert("RGB")
     if image.size != (1560, 1716):
         raise ValueError("Closure title-band coordinates require the original 1560x1716 image")
+    top_margin = 28
+    canvas = Image.new("RGB", (image.width, image.height + top_margin), "white")
+    canvas.paste(image, (0, top_margin))
     rows = [
-        ("KRISO Container Ship (KCS)", [125, 27, 35, 35]),
+        ("KCS", [125, 27, 35, 35]),
         ("DTMB 5415", [411, 313, 323, 323]),
-        ("KRISO Very Large Crude Carrier 2 (KVLCC2)", [689, 635, 599, 599]),
-        ("Generic workboat hull", [965, 885, 885, 885]),
+        ("KVLCC2", [689, 635, 599, 599]),
+        ("Work boat", [965, 885, 885, 885]),
         ("Wigley hull", [1276, 1171, 1207, 1207]),
-        ("Generic container-ship hull", [1552, 1467, 1457, 1457]),
+        ("Container ship", [1552, 1467, 1457, 1457]),
     ]
-    font = ImageFont.truetype(findfont("DejaVu Sans"), 12)
-    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype(findfont("DejaVu Sans"), 28)
+    draw = ImageDraw.Draw(canvas)
     for name, tops in rows:
         for column, (view, top) in enumerate(zip(
             ["deck", "bow end", "stern plan", "bow plan"], tops
         )):
+            top += top_margin
             left = column * 390
-            draw.rectangle((left, max(0, top - 26), left + 389, top - 3), fill="white")
-            draw.text((left + 195, top - 16), f"{name} {view}",
+            draw.rectangle((left, max(0, top - 42), left + 389, top - 3), fill="white")
+            draw.text((left + 195, top - 22), f"{name} {view}",
                       anchor="mm", font=font, fill="black")
     # No artificial upsampling: native resolution exceeds 400 ppi at print size.
-    image.save(output_path, optimize=True, dpi=(300, 300))
+    canvas.save(output_path, optimize=True, dpi=(300, 300))
 
 
 def main() -> None:

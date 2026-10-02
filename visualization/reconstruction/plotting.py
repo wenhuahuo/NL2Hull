@@ -315,14 +315,14 @@ def plot_profile(
         (axes[1], "Stern contour", fit.stern, fit.stern_nurbs, generated_stern, "tab:blue"),
     ]:
         ax.plot(fit.raw_xz[:, 0], fit.raw_xz[:, 1], ".", ms=0.6, alpha=0.12, color="0.4")
-        ax.plot(points[:, 0], points[:, 1], "k.", ms=2.5, label="extracted")
+        ax.plot(points[:, 0], points[:, 1], "k.", ms=2.5, label="Extracted contour")
         curve = generated
         ax.plot(
             curve[:, 0],
             curve[:, 1],
             color=color,
             lw=1.8,
-            label=nurbs.get("model", "NURBS fit"),
+            label="NURBS fit",
         )
         ax.plot(
             nurbs["control_points"][:, 0],
@@ -331,9 +331,9 @@ def plot_profile(
             color=color,
             ms=4,
             alpha=0.7,
-            label="controls",
+            label="Control points",
         )
-        ax.axhline(hull.draft, color="tab:red", ls="--", lw=0.7, label="design draft")
+        ax.axhline(hull.draft, color="tab:red", ls="--", lw=0.7, label="Design Draft")
         pad = 0.02
         ax.set_xlim(points[:, 0].min() - pad, points[:, 0].max() + pad)
         ax.set_ylim(points[:, 1].min() - pad, points[:, 1].max() + pad)

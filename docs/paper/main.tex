@@ -523,11 +523,10 @@ scale for rapid evaluation.
         \caption{Typed-question counts.}
     \end{subfigure}
     \caption{Dataset structure and typed-question composition. (a) The 139,903
-    non-rollback descriptions retained in the embedding projection are colored
+    SDD Dataset records in the embedding projection are colored
     by source model. The six annotations identify dominant linguistic or
     structural patterns obtained by joining the projection to the structured
-    records; source-model adjusted mutual information with the six clusters is
-    0.0012, whereas the corresponding value for interaction type is 0.1161.
+    records;
     (b) Absolute counts of the six typed-question families in the SDD Dataset
     and SDDBench on a common radial scale. The outer polygon is the full SDD
     Dataset (1,184,336 questions), and the inner polygon is SDDBench (43,496
@@ -1547,8 +1546,8 @@ with four gradient-accumulation steps gave an effective batch size of eight.
 Weights and computation used 16-bit brain floating point (bfloat16), with gradient
 checkpointing enabled, on an NVIDIA RTX A6000 graphics processor.
 
-Table~\ref{tab:chip-training-config} lists the initialization and batch settings
-for the model-scale experiment. Chip-2B used a decision checkpoint trained on the
+Table~\ref{tab:chip-training-config} lists the language-backbone and batch
+settings for the model-scale experiment. Chip-2B used a decision checkpoint trained on the
 original Kev decision dataset; this preliminary training used two epochs, a
 learning rate of $5\times10^{-5}$, rank-16 low-rank adaptation, and the same
 effective batch size of eight. Chip-4B used the open-sourced Kev-4B decision checkpoint.
@@ -1557,18 +1556,18 @@ ship-design adaptation settings described above, with the batch and accumulation
 settings shown in the table.
 
 \begin{table*}[t]
-\caption{Variant-specific initialization and batch settings for ship-design
+\caption{Variant-specific language-backbone and batch settings for ship-design
 adaptation. The batch size is the number of records per microbatch; accumulation
 is the number of gradient-accumulation steps.}
 \label{tab:chip-training-config}
 \centering
-\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lp{0.23\textwidth}p{0.35\textwidth}rr@{}}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lp{0.45\textwidth}rr@{}}
 \toprule
-Model & Language backbone & Decision initialization & Batch size & Accumulation \\
+Model & Language backbone & Batch size & Accumulation \\
 \midrule
-Chip & Qwen3.5-0.8B-Base & Published Kev-0.8B & 2 & 4 \\
-Chip-2B & Qwen3.5-2B-Base & Kev-2B trained on the original decision dataset & 2 & 4 \\
-Chip-4B & Qwen3.5-4B-Base & Cached Kev-4B & 1 & 8 \\
+Chip & Qwen3.5-0.8B-Base & 2 & 4 \\
+Chip-2B & Qwen3.5-2B-Base & 2 & 4 \\
+Chip-4B & Qwen3.5-4B-Base & 1 & 8 \\
 \bottomrule
 \end{tabular*}
 \end{table*}
