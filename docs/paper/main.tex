@@ -1088,10 +1088,14 @@ and compared the resulting reconstruction and decision metrics.
 To isolate the effect of the center-plane profile representation on hull
 reconstruction, we compared five configurations evaluated on the same 12 hulls,
 with identical waterline levels, extracted profile samples, and mesh-comparison
-settings. The baseline used 24 control points per stem and stern contour with
-uniform clamped cubic-spline knots. Three representation features were then
-introduced separately or together: 32 control points, a repeated knot at the stem
-deck corner, and locally concentrated knots around the bulb.
+settings. The 24-control configuration used 24 control points per stem and stern
+contour with uniform clamped cubic-spline knots. Three representation operations
+were then introduced separately or together, using the labels in
+Figure~\ref{fig:profile-ablation}: ``32 controls'' increases both contours to 32
+control points; ``Deck knot'' repeats the B-spline knot at the stem deck-corner
+parameter, increasing its local multiplicity; and ``Bulb knots'' densifies the
+interior stem-knot distribution around the bulb parameter. The ``Combined''
+configuration applies all three operations.
 
 The primary metrics were the RMSEs of the fitted stem and stern contours, calculated against their 80-point resampled reference contours. These
 metrics directly measure the accuracy of the profile curves modified in this
@@ -1101,16 +1105,17 @@ Table~\ref{tab:profile-ablation} reports both the KCS result and the arithmetic
 mean over all 12 hulls. Increasing the control count reduced both stem and stern
 errors, while the combined representation produced the lowest stem-contour RMSE
 in both scopes: 0.000343 for KCS and 0.000221 averaged over the hull set. The
-repeated deck knot and local bulb knots mainly affected the stem contour, with
-little change in the stern-contour error. Figure~\ref{fig:profile-ablation} shows
+Deck knot and Bulb knots mainly affected the stem contour, with little change in
+the stern-contour error. Figure~\ref{fig:profile-ablation} shows
 the corresponding KCS reconstructions and the local changes around the bow
 features.
 
 \begin{table*}[t]
-\caption{Ablation of the center-plane profile representation. Variant A adds
-32 controls, variant B adds a repeated stem deck-corner knot, and variant C adds
-locally concentrated stem knots around the bulb. A check mark indicates the
-feature included in the variant. Errors are normalized by the source-hull length;
+\caption{Ablation of the center-plane profile representation. The ``32 controls''
+operation increases the stem and stern contours from 24 to 32 control points.
+The ``Deck knot'' operation repeats the stem deck-corner knot, and ``Bulb knots''
+densifies the interior stem-knot distribution around the bulb. ``Combined''
+contains all three operations. Errors are normalized by the source-hull length;
 ``Mean'' is the arithmetic mean over the 12 classic hulls.}
 \label{tab:profile-ablation}
 \centering
@@ -1118,13 +1123,13 @@ feature included in the variant. Errors are normalized by the source-hull length
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrrr}
 \toprule
-Variant & 32 controls & Repeated deck knot & Local bulb knots & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
+Variant & 32 controls & Deck knot & Bulb knots & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
 \midrule
-Baseline & -- & -- & -- & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
-A & \checkmark & -- & -- & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
-B & -- & \checkmark & -- & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
-C & -- & -- & \checkmark & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
-A+B+C & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
+24 controls & -- & -- & -- & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
+32 controls & \checkmark & -- & -- & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
+Deck knot & -- & \checkmark & -- & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
+Bulb knots & -- & -- & \checkmark & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
+Combined & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
 \bottomrule
 \end{tabular}%
 }
@@ -1222,8 +1227,10 @@ All seven checkpoints were evaluated on SDDBench using the probability-question
 and FFD action-scoring protocol described in
 Section~\ref{sec:ship-decision-results}. Table~\ref{tab:data-scaling} combines
 the subset evaluations with the full-data result reported in
-Section~\ref{sec:ablation-scale}. The question accuracy uses successfully scored questions, while FFD exact match
-includes all SDDBench records.
+Section~\ref{sec:ablation-scale}. Figure~\ref{fig:data-scaling} plots the two
+accuracy measures against the same training-data shares. The question accuracy
+uses successfully scored questions, while FFD exact match includes all SDDBench
+records.
 
 \begin{table*}[t]
 \caption{Effect of SDD Dataset size on Chip. Training share is relative to the
@@ -1251,6 +1258,14 @@ NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\begin{center}
+    \includegraphics[width=\linewidth]{../../visualization/data_scaling/figure_data_scaling.png}
+    \captionof{figure}{Effect of training-data size on Chip accuracy. The
+    horizontal axis shows the share of the SDD Dataset training partition; the
+    0\% point is the Kev-Base reference before ship-design adaptation.}
+    \label{fig:data-scaling}
+\end{center}
 
 Ship-design adaptation produced a large initial improvement: the 1\% model
 reached 94.02\% question accuracy and 96.86\% FFD exact match, compared with

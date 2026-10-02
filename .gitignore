@@ -35,3 +35,6 @@ datasets/
 # Generated exports for the dataset-distribution figure.
 /visualization/dataset_distribution/figure8/*.png
 /visualization/dataset_distribution/figure8/manifest.json
+
+# Generated export for the data-scaling figure.
+/visualization/data_scaling/figure_data_scaling.png
