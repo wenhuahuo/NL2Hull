@@ -168,7 +168,7 @@ def _draw_cuboid(ax, direction: np.ndarray, color: str) -> None:
     edges = ((0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6),
              (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7))
     for start, end in edges:
-        ax.plot(*corners[[start, end]].T, color=color, linewidth=1.5,
+        ax.plot(*corners[[start, end]].T, color=color, linewidth=2.25,
                 alpha=0.90, zorder=10, solid_capstyle="round")
 
 
@@ -253,7 +253,7 @@ def _render(mesh: trimesh.Trimesh, output: Path, *, waterlines=None,
             p, q = _project(np.array([start, end]), direction)
             ax.annotate("", xy=q, xytext=p,
                         arrowprops={"arrowstyle": "-|>", "color": ORANGE,
-                                    "linewidth": 2.0, "mutation_scale": 15},
+                                    "linewidth": 3.0, "mutation_scale": 15},
                         annotation_clip=False, zorder=12)
     fig.savefig(output, transparent=True, pad_inches=0)
     plt.close(fig)
