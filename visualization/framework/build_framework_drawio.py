@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import struct
 from html import escape
 from urllib.parse import quote
 from pathlib import Path
@@ -23,9 +24,15 @@ def _data_uri(path: Path, mime: str) -> str:
         text = raw.decode("utf-8").replace("#2c2c2c", "#ff7b38").replace("#13227a", "#6d46b8")
         return "data:image/svg+xml," + quote(text, safe="")
     encoded = base64.b64encode(raw).decode("ascii")
+    if mime == "image/png":
+        if raw[:8] != b"\x89PNG\r\n\x1a\n":
+            raise ValueError(f"Expected PNG asset: {path}")
+        image_width, image_height = struct.unpack(">II", raw[16:24])
+    else:
+        image_width, image_height = 1, 1
     wrapper = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
-        f'<image width="1" height="1" preserveAspectRatio="none" href="data:image/png;base64,{encoded}"/>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {image_width} {image_height}">'
+        f'<image width="{image_width}" height="{image_height}" preserveAspectRatio="none" href="data:image/png;base64,{encoded}"/>'
         "</svg>"
     )
     return "data:image/svg+xml," + quote(wrapper, safe="")
@@ -63,7 +70,7 @@ def text(root: Element, cell_id: str, x: float, y: float, width: float, height: 
 
 
 def image(root: Element, cell_id: str, x: float, y: float, width: float, height: float, uri: str) -> str:
-    style = f"shape=image;image={uri};imageAspect=0;aspect=fixed;strokeColor=none;fillColor=none;"
+    style = f"shape=image;image={uri};imageAspect=1;aspect=fixed;strokeColor=none;fillColor=none;"
     cell = _cell(root, cell_id, "", style)
     _geometry(cell, x, y, width, height)
     return cell_id
