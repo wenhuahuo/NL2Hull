@@ -629,7 +629,7 @@ is computed from bidirectional nearest-neighbour distances between input and
 reconstructed surface vertices.}
 \label{tab:reconstruction-error}
 \centering
-\begin{tabular}{lrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrr@{}}
 \toprule
 Hull & Surface RMSE & Waterline width RMSE & Fore-profile RMSE & Aft-profile RMSE \\
 \midrule
@@ -646,7 +646,7 @@ Series 60                   & 0.00893 & 0.00094 & 0.00021 & 0.00055 \\
 Wigley hull                 & 0.00241 & 0.00018 & 0.00011 & 0.00079 \\
 Work boat                   & 0.00761 & 0.00504 & 0.00030 & 0.00090 \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 \subsubsection{FFD operation visualization and geometric validity}
@@ -706,18 +706,15 @@ larger volume change across the entire hull.
 \caption{Geometric measurements for representative FFD operations on KVLCC2.}
 \label{tab:ffd-validity}
 \centering
-\scriptsize
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lrrcc}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrcc@{}}
 \toprule
-Operation & Level & Volume ratio & Watertight & Valid volume \\
+Operation & Level & \shortstack{Volume\\ratio} & Watertight & \shortstack{Valid\\volume} \\
 \midrule
 Bow outward             & 5 & 1.037 & Yes & Yes \\
 Bulb forward            & 4 & 1.033 & Yes & Yes \\
-Global breadth increase & 5 & 1.120 & Yes & Yes \\
+\shortstack[l]{Global breadth\\increase} & 5 & 1.120 & Yes & Yes \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 \end{table}
 
 Together, the reconstruction and deformation experiments establish a continuous
@@ -791,8 +788,7 @@ evaluated questions, and FFD exact match uses all 5,000 requested records. Accur
 are preferred for NLL, ECE, and Brier score. Best values are shown in bold.}
 \label{tab:benchmark-outline}
 \centering
-\small
-\begin{tabular}{lrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
 \toprule
 Model & Question accuracy $\uparrow$ & FFD exact match $\uparrow$ & NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 \midrule
@@ -810,7 +806,7 @@ DeepSeek V4.1 Flash   & 92.84 & 98.40 & 0.6808 & 0.0307 & 0.1158 \\
 JEV                   & 90.96 & 84.52 & 0.3092 & 0.0271 & 0.1266 \\
 Chip (Ours)       & \textbf{95.90} & \textbf{99.32} & \textbf{0.0951} & \textbf{0.0032} & \textbf{0.0551} \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 Chip achieved the highest question accuracy among the compared systems,
@@ -871,8 +867,7 @@ metrics are from the Original tier. Public reference calibration values follow
 the reporting scope of the supplied JevBench comparison table.}
 \label{tab:jevbench-results}
 \centering
-\small
-\begin{tabular}{lrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
 \toprule
 Model & Easy & Original & Hard & Brier $\downarrow$ & ECE $\downarrow$ \\
 \midrule
@@ -883,7 +878,7 @@ JevK5                & \textbf{100.0000} & 97.2200 & \textbf{73.8700} & 0.3662 &
 Intern-Decision-0.8B & 97.9200  & 80.5600 & 52.2500 & 0.5295 & 0.0657 \\
 Chip (Ours)      & \textbf{100.0000} & 81.9444 & 36.9369 & \textbf{0.3489} & 0.1633 \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 On the Easy tier, Chip matched the best accuracy in the supplied comparison.
@@ -978,18 +973,15 @@ is calculated over all labelled action levels. Constraint satisfaction is
 calculated over experiments containing at least one constraint.}
 \label{tab:end2end-results}
 \centering
-\small
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrrrr@{}}
 \toprule
-Interaction type & Experiments & End-to-end success & Trajectory exact & Geometry valid & Constraints satisfied & Level accuracy \\
+\shortstack{Interaction\\type} & Experiments & \shortstack{End-to-end\\success} & \shortstack{Trajectory\\exact} & \shortstack{Geometry\\valid} & \shortstack{Constraints\\satisfied} & \shortstack{Level\\accuracy} \\
 \midrule
 Single edit                 & 100 & 100.00\% & 100.00\% & 100.00\% & 100.00\% & 52.00\% \\
 Multi-region, single turn  & 100 & 60.00\%  & 96.00\%  & 100.00\% & 13.33\%  & 70.48\% \\
 Same-region, two turns     & 100 & 98.00\%  & 100.00\% & 100.00\% & 95.35\%  & 81.50\% \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 \end{table*}
 
 The result demonstrates that the complete pipeline can transform natural-language
@@ -1044,8 +1036,7 @@ outputs. The API evaluators timed failed attempts as well as successful attempts
 the JEV latency statistics use its 4,322 completed requests.}
 \label{tab:latency-results}
 \centering
-\small
-\begin{tabular}{lrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrr@{}}
 \toprule
 Model & Mean latency (ms) & 95th percentile (ms) \\
 \midrule
@@ -1063,7 +1054,7 @@ DeepSeek V4.1 Flash  & 4630.63  & 11131.43 \\
 JEV                  & 1510.33  & 2908.01 \\
 Chip (Ours)      & 118.01   & 235.55 \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 Chip had the lowest recorded latency, with a mean of
@@ -1119,11 +1110,9 @@ contains all three operations. Errors are normalized by the source-hull length;
 ``Mean'' is the arithmetic mean over the 12 classic hulls.}
 \label{tab:profile-ablation}
 \centering
-\small
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrrrrr@{}}
 \toprule
-Variant & 32 controls & Deck knot & Bulb knots & KCS stem RMSE & KCS stern RMSE & Mean stem RMSE & Mean stern RMSE \\
+Variant & \shortstack{32\\controls} & \shortstack{Deck\\knot} & \shortstack{Bulb\\knots} & \shortstack{KCS stem\\RMSE} & \shortstack{KCS stern\\RMSE} & \shortstack{Mean stem\\RMSE} & \shortstack{Mean stern\\RMSE} \\
 \midrule
 24 controls & -- & -- & -- & 0.002326 & 0.001581 & 0.001551 & 0.001236 \\
 32 controls & \checkmark & -- & -- & 0.001222 & \textbf{0.000818} & 0.000909 & \textbf{0.000785} \\
@@ -1131,8 +1120,7 @@ Deck knot & -- & \checkmark & -- & 0.002187 & 0.001581 & 0.000994 & 0.001236 \\
 Bulb knots & -- & -- & \checkmark & 0.001684 & 0.001581 & 0.001396 & 0.001236 \\
 Combined & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000818} & \textbf{0.000221} & \textbf{0.000785} \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 \end{table*}
 
 \begin{figure*}[t]
@@ -1197,9 +1185,7 @@ show marked performance differences.
 successfully scored questions. FFD exact match uses all requested turns. Best values in each column are bold.}
 \label{tab:scale-ablation}
 \centering
-\small
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lrrrrrr@{}}
 \toprule
 Model & Completed records & Question accuracy & FFD exact match & NLL & ECE & Brier score \\
 \midrule
@@ -1207,8 +1193,7 @@ Chip & 5,000 & 95.8962\% & \textbf{99.32\%} & 0.0951 & 0.0032 & 0.0551 \\
 Chip-2B   & 5,000 & \textbf{95.9192\%} & 99.30\% & \textbf{0.0948} & \textbf{0.0022} & \textbf{0.0548} \\
 Chip-4B   & 4,999 & 95.8794\% & 99.24\% & 0.0951 & 0.0025 & 0.0549 \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 \end{table*}
 
 \subsubsection{Effect of Training Data Size}
@@ -1240,8 +1225,7 @@ percentages. Lower values are preferred for NLL, ECE, and Brier score. Best
 values are shown in bold.}
 \label{tab:data-scaling}
 \centering
-\small
-\begin{tabular}{rrrrrrr}
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}rrrrrrr@{}}
 \toprule
 \shortstack{Training\\share (\%)} & \shortstack{Training\\records} &
 \shortstack{Question\\accuracy $\uparrow$} & FFD exact match $\uparrow$ &
@@ -1256,7 +1240,7 @@ NLL $\downarrow$ & ECE $\downarrow$ & Brier $\downarrow$ \\
 100 & 88,604 & \textbf{95.90} & \textbf{99.32} & \textbf{0.0951} &
 \textbf{0.0032} & \textbf{0.0551} \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 \begin{center}
@@ -1572,13 +1556,13 @@ All three variants then used the same SDD Dataset training partition and
 ship-design adaptation settings described above, with the batch and accumulation
 settings shown in the table.
 
-\begin{center}
-\refstepcounter{table}\label{tab:chip-training-config}
-\textbf{Table~\thetable.} Variant-specific initialization and batch settings for
-ship-design adaptation. The batch size is the number of records per microbatch;
-accumulation is the number of gradient-accumulation steps.\par\medskip
-\small
-\begin{tabular}{lp{0.23\textwidth}p{0.35\textwidth}rr}
+\begin{table*}[t]
+\caption{Variant-specific initialization and batch settings for ship-design
+adaptation. The batch size is the number of records per microbatch; accumulation
+is the number of gradient-accumulation steps.}
+\label{tab:chip-training-config}
+\centering
+\begin{tabular*}{\tblwidth}{@{\extracolsep{\fill}}lp{0.23\textwidth}p{0.35\textwidth}rr@{}}
 \toprule
 Model & Language backbone & Decision initialization & Batch size & Accumulation \\
 \midrule
@@ -1586,8 +1570,8 @@ Chip & Qwen3.5-0.8B-Base & Published Kev-0.8B & 2 & 4 \\
 Chip-2B & Qwen3.5-2B-Base & Kev-2B trained on the original decision dataset & 2 & 4 \\
 Chip-4B & Qwen3.5-4B-Base & Cached Kev-4B & 1 & 8 \\
 \bottomrule
-\end{tabular}
-\end{center}
+\end{tabular*}
+\end{table*}
 
 For the training-data-size experiment, every adapted checkpoint was independently
 initialized from the same Kev-0.8B checkpoint and used the main Chip
