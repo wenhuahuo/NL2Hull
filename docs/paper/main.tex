@@ -48,7 +48,7 @@ deformation (FFD) to their control points, reconstructs the hull, and checks
 geometric constraints. We construct the Ship Design Decision Dataset (SDD
 Dataset) with 134,558 cleaned records and evaluate compared models on its subset
 Ship Design Decision Benchmark (SDDBench), containing 5,000 records and 43,496
-typed questions. We proposed constrained ship design model named Chip to process language, it reaches 95.90\%
+typed questions. We propose Chip, a constrained ship-design decision model for processing natural-language requests. Chip reaches 95.90\%
 question accuracy and 99.32\% FFD exact match, with a negative log-likelihood of
 0.0951, an expected calibration error of 0.0032, and a Brier score of 0.0551.
 The NL2Hull Framework provides a reproducible interface for evaluating language-based ship-form decisions while
@@ -462,8 +462,10 @@ combined edits, sequential refinement, and numerically specified requests.
 Each FFD operation record provides the basis for generating Chinese
 natural-language design requests. Its structured action specification is given
 through the Pi Agent interface\footnote{\url{https://pi.dev}} to one of seven
-language models: Claude Opus 5, Kimi K3, GLM-5.3, Grok-4.7,
-DeepSeek-V4.1-Flash, GPT-5.6 Sol, and Xiaomi MiMo-V2.6-Pro. Four alternative
+language models: Claude Opus 5~\citep{anthropic2026claude}, Kimi K3~\citep{kimi2026k3},
+GLM-5.3~\citep{glm5team2026glm5vibecodingagentic}, Grok-4.7,
+DeepSeek-V4.1-Flash~\citep{deepseek2026v41flash}, GPT-5.6 Sol, and
+Xiaomi MiMo-V2.6-Pro~\citep{mimo2026v26pro}. Four alternative
 descriptions are requested for each editing step, including both steps in a
 two-step record. The generation prompt is provided in Appendix~\ref{app:description-prompt}.
 The generation instruction requires these descriptions to
@@ -485,11 +487,11 @@ the modification directly.
 Before constructing the typed decision records, the generated descriptions are
 checked for plain-language format, required numerical values, and disclosure of
 internal magnitude labels. The original natural-language collection contains
-149,998 descriptions. Data cleaning removes conflicting duplicate-text groups,
-and 8,076 rollback-oriented augmentations with invalid labels are excluded.
-After cleaning and selection, the SDD Dataset contains 134,558 records. The
-training, validation, and test partitions contain 88,604, 22,758, and 23,196
-records, respectively.
+149,998 descriptions. We exclude 8,076 rollback-oriented augmentations with
+invalid labels, then remove 7,364 exact text duplicates using split priority. Identical texts with conflicting labels are
+rejected during validation. Thus, the resulting SDD Dataset contains 134,558
+records. The training, validation, and test partitions contain 88,604, 22,758,
+and 23,196 records, respectively.
 
 Each natural-language record is expanded into typed questions with labelled
 candidate answers. The first question selects one, two, or three actions. Each
@@ -515,18 +517,17 @@ scale for rapid evaluation.
     \begin{subfigure}[t]{0.63\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../../visualization/dataset_distribution/figure8/pca.png}
-        \caption{Qwen3-Embedding PCA projection.}
+        \caption{Qwen3-Embedding~\citep{zhang2025qwen3embedding} PCA projection.}
     \end{subfigure}\hfill
     \begin{subfigure}[t]{0.34\textwidth}
         \centering
         \includegraphics[width=\linewidth]{../../visualization/dataset_distribution/figure8/radar.png}
         \caption{Typed-question counts.}
     \end{subfigure}
-    \caption{Dataset structure and typed-question composition. (a) The 139,903
-    SDD Dataset records in the embedding projection are colored
-    by source model. The six annotations identify dominant linguistic or
-    structural patterns obtained by joining the projection to the structured
-    records;
+    \caption{Dataset structure and typed-question composition. (a) The distribution
+    of the 134,558 language descriptions after embedding projection and dimensionality
+    reduction. The six annotations identify dominant linguistic or structural patterns
+    obtained by joining the projection to the structured records;
     (b) Absolute counts of the six typed-question families in the SDD Dataset
     and SDDBench on a common radial scale. The outer polygon is the full SDD
     Dataset (1,184,336 questions), and the inner polygon is SDDBench (43,496
@@ -734,7 +735,8 @@ design.
 
 To evaluate model performance in ship design decision making, all models were
 tested on SDDBench. The comparison includes Chip, the native JEV decision model,
-three flagship language models, and three locally served small language models.
+three flagship language models, and three locally served small language models:
+Qwen3~\citep{yang2025qwen3}, Gemma 3~\citep{gemmateam2025gemma3}, and Llama 3.2~\citep{grattafiori2024llama3}.
 Chip and JEV expose typed decision interfaces directly. For the general language
 models, we used prompt-constrained adaptation: each model received the record
 state, typed questions, candidate keys, and a strict JavaScript Object Notation
@@ -1379,8 +1381,7 @@ Engine. The system combines a NURBS waterline representation with an explicit
 action projection and the SDDBench evaluation protocol. On SDDBench, Chip achieved 95.90\% question accuracy and 99.32\% FFD exact
 match with well-calibrated probabilities. The representation study reduced the mean
 stem-contour error to 0.000221 over 12 hulls, and the end-to-end study verified
-that the system can execute single edits and multi-turn edits on a KVLCC2 hull
-using 300 training-split experiments.
+that the system can execute single edits and multi-turn edits on a KVLCC2 hull.
 
 The end-to-end experiments also identified a concrete CFFD Engine limitation.
 Displacement preservation is compensated at the action level, while the final
