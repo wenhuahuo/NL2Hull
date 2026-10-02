@@ -58,8 +58,8 @@ def render_case(original, changed, output: Path, prompts=None) -> None:
     fig = plt.figure(figsize=(7.1, 2.25 if end_to_end else 1.9), layout="constrained")
     fig.get_layout_engine().set(w_pad=.03, h_pad=.025, wspace=.04, hspace=.06)
     grid = fig.add_gridspec(
-        2, 3 if end_to_end else 2,
-        width_ratios=[2, 1.3, 2] if end_to_end else [1, 1],
+        2, 3,
+        width_ratios=[2, 1.3, 2],
         height_ratios=[1.3, 1],
     )
     for row, (axis_b, view_axis, name) in enumerate(((1, 2, "plan"), (2, 1, "side"))):
@@ -72,23 +72,24 @@ def render_case(original, changed, output: Path, prompts=None) -> None:
         else:
             _colored_mesh(right, original, 0, axis_b, view_axis, "0.65", .30)
             _colored_mesh(right, changed, 0, axis_b, view_axis, "tab:blue", .62)
+            _overlay_original_sections(right, original, name)
         for ax in (left, right):
             set_view(ax, bounds, (0, axis_b))
 
+    arrow = fig.add_subplot(grid[:, 1])
+    arrow.set_axis_off()
     if end_to_end:
-        arrow = fig.add_subplot(grid[:, 1])
-        arrow.set_axis_off()
         lines = []
         for index, prompt in enumerate(prompts, 1):
             text = _english_prompt(prompt)
             if len(prompts) > 1:
                 text = f"{index}. {text}"
             lines.extend(textwrap.wrap(text, width=30))
-        arrow.text(.5, .55, "\n".join(lines), ha="center", va="center",
+        arrow.text(.5, .58, "\n".join(lines), ha="center", va="center",
                    fontsize=6.5, linespacing=1.1, transform=arrow.transAxes)
-        arrow.annotate("", xy=(.98, .12), xytext=(.02, .12),
-                       xycoords="axes fraction",
-                       arrowprops={"arrowstyle": "-|>", "lw": .9, "color": ".3"})
+    arrow.annotate("", xy=(.98, .50), xytext=(.02, .50),
+                   xycoords="axes fraction",
+                   arrowprops={"arrowstyle": "-|>", "lw": .9, "color": ".3"})
     fig.savefig(output, dpi=DPI, bbox_inches="tight", pad_inches=.02,
                 pil_kwargs={"optimize": True})
     plt.close(fig)
