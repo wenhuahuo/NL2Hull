@@ -26,9 +26,10 @@ MODELS = (
     "Claude Opus 5", "Kimi K3", "GLM 5.3", "Grok 4.7",
     "DeepSeek Flash", "GPT 5.6", "MiMo V2.6 Pro",
 )
+# Palette retained from the original source-model plot.
 MODEL_COLORS = (
-    "#1565C0", "#E67E22", "#00897B", "#8E44AD",
-    "#C0392B", "#2C3E50", "#7A9E1E",
+    "#426897", "#F0A450", "#62A895", "#BD789D",
+    "#C75D59", "#8C77AF", "#92A753",
 )
 MODEL_KEYS = (
     "wokey/claude-opus-5", "wokey/kimi-k3", "wokey/glm-5.3",
@@ -60,7 +61,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--structured", type=Path, required=True)
     p.add_argument("--sdd-files", type=Path, nargs="+", required=True)
     p.add_argument("--bench-file", type=Path, required=True)
-    p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--output", type=Path,
+                   default=Path(__file__).resolve().parent / "figure8")
     return p.parse_args()
 
 
@@ -143,7 +145,7 @@ def plot_pca(xy: np.ndarray, model_ids: np.ndarray, output: Path,
     # legend cannot visually cover the other six colors.
     order = rng.permutation(len(xy))
     point_colors = np.asarray(MODEL_COLORS, dtype=object)[model_ids]
-    ax.scatter(xy[order, 0], xy[order, 1], s=7.2, alpha=.38,
+    ax.scatter(xy[order, 0], xy[order, 1], s=6.2, alpha=.34,
                color=point_colors[order], edgecolors="none", rasterized=True)
     ax.set_xlabel("PCA 1", labelpad=2)
     ax.set_ylabel("PCA 2", labelpad=2)
@@ -174,12 +176,12 @@ def plot_pca(xy: np.ndarray, model_ids: np.ndarray, output: Path,
                         "shrinkA": 3, "shrinkB": 2, "connectionstyle": "arc3,rad=.12"},
         )
     handles = [Line2D([0], [0], marker="o", color="none", markerfacecolor=color,
-                       markeredgecolor="none", markersize=5.2, label=name)
+                       markeredgecolor="none", markersize=4.5, label=name)
                for name, color in zip(MODELS, MODEL_COLORS)]
-    ax.legend(handles=handles, title="Source model", loc="upper left",
-              bbox_to_anchor=(1.015, 1.0), frameon=False, fontsize=6.2,
-              title_fontsize=6.7, borderaxespad=0., handletextpad=.45,
-              labelspacing=.45)
+    ax.legend(handles=handles, title="Generator", loc="lower left",
+              bbox_to_anchor=(.018, .018), ncol=2, frameon=False, fontsize=5.4,
+              title_fontsize=5.8, borderaxespad=0., handletextpad=.35,
+              columnspacing=.8, labelspacing=.28)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, facecolor="white")
     plt.close(fig)
@@ -218,20 +220,28 @@ def plot_radar(sdd: Counter, sdd_records: int, bench: Counter,
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(QUESTION_LABELS, fontsize=7)
     ax.tick_params(axis="x", pad=8)
-    ax.set_ylim(0, max(values_sdd) * 1.10)
-    ax.set_yticks(np.linspace(0, max(values_sdd) * 1.0, 4)[1:])
-    ax.set_yticklabels([])
+    # Absolute question counts are retained, while a logarithmic radial scale
+    # keeps the much smaller SDDBench polygon visible without rescaling it.
+    ax.set_yscale("log")
+    ax.set_ylim(1e3, max(values_sdd) * 1.12)
+    radial_ticks = np.array([1e3, 1e4, 1e5, 3e5])
+    radial_ticks = radial_ticks[radial_ticks < max(values_sdd) * 1.12]
+    ax.set_yticks(radial_ticks)
+    ax.set_yticklabels(["1k", "10k", "100k", "300k"][:len(radial_ticks)], fontsize=5.8)
+    ax.set_rlabel_position(0)
+    ax.tick_params(axis="y", pad=2, length=2)
     ax.grid(color="#C9D1D9", lw=.45, alpha=.8)
     ax.spines["polar"].set_color("#8A949E")
     ax.spines["polar"].set_linewidth(.65)
     ax.legend([
         Line2D([0], [0], color="#D97706", lw=1.7),
         Line2D([0], [0], color="#1565C0", lw=1.7),
-    ], [f"SDD Dataset (n={sum(sdd.values())/1e6:.3f}M questions)",
-        f"SDDBench (n={sum(bench.values()):,} questions)"],
-        loc="lower center", bbox_to_anchor=(.5, 1.25), frameon=False,
-        fontsize=6.2, handlelength=1.8, borderaxespad=0.2,
-        labelspacing=.35)
+    ], [f"SDD Dataset (n={sum(sdd.values())/1e6:.3f}M)",
+        f"SDDBench (n={sum(bench.values()):,})"],
+        loc="lower left", bbox_to_anchor=(.025, .025), frameon=True,
+        facecolor="white", framealpha=.82, edgecolor="none",
+        fontsize=6.0, handlelength=1.6, borderaxespad=.2,
+        labelspacing=.3)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, facecolor="white")
     plt.close(fig)

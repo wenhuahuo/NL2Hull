@@ -31,3 +31,7 @@ datasets/
 /visualization/classic_hull_overview/figure1_classic_hull_overview.pdf
 /visualization/classic_hull_overview/figure1_classic_hull_overview.png
 /visualization/classic_hull_overview/figure1_classic_hull_overview.tiff
+
+# Generated exports for the dataset-distribution figure.
+/visualization/dataset_distribution/figure8/*.png
+/visualization/dataset_distribution/figure8/manifest.json
