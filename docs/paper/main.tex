@@ -504,7 +504,11 @@ The test partition contains 23,196 records and 201,774 expanded questions. We
 select 5,000 records by hull, description source, action count, and the presence
 of an explicit magnitude to form SDDBench for rapid model evaluation. The
 selected subset contains 43,496 expanded questions, and every compared system
-receives the same selected requests.
+receives the same selected requests. Figure~\ref{fig:dataset-distribution}
+visualizes the language-space structure and the typed-question composition of the
+two collections. The near-overlap of the two radar profiles shows that SDDBench
+preserves the question-family composition of the SDD Dataset while reducing its
+scale for rapid evaluation.
 
 \paragraph{Evaluation protocol and metrics.}
 All compared systems receive the same SDDBench records, typed questions,
@@ -1137,6 +1141,31 @@ A+B+C & \checkmark & \checkmark & \checkmark & \textbf{0.000343} & \textbf{0.000
     contours with their fitted cubic-spline curves. Variants occupy separate rows,
     with stem contours on the left and stern contours on the right.}
     \label{fig:profile-ablation}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.63\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/dataset_distribution_figure8/pca.png}
+        \caption{Qwen3-Embedding PCA projection.}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../outputs/dataset_distribution_figure8/radar.png}
+        \caption{Typed-question counts.}
+    \end{subfigure}
+    \caption{Dataset structure and typed-question composition. (a) The 139,903
+    non-rollback descriptions retained in the embedding projection are colored
+    by source model. The six annotations identify dominant linguistic or
+    structural patterns obtained by joining the projection to the structured
+    records; source-model adjusted mutual information with the six clusters is
+    0.0012, whereas the corresponding value for interaction type is 0.1161.
+    (b) Absolute counts of the six typed-question families in the SDD Dataset
+    and SDDBench on a common radial scale. The outer polygon is the full SDD
+    Dataset (1,184,336 questions), and the inner polygon is SDDBench (43,496
+    questions).}
+    \label{fig:dataset-distribution}
 \end{figure*}
 
 \subsubsection{Effect of Chip Model Scale}
