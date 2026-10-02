@@ -60,9 +60,13 @@ def main() -> None:
             lw=1.35, label="FFD exact match")
     ax.set_xlabel("Training data share (%)", labelpad=2)
     ax.set_ylabel("Accuracy (%)", labelpad=2)
-    ax.set_xlim(-2, 103)
+    # A symmetric-log scale retains the 0% Kev-Base reference while placing
+    # the trained checkpoints at logarithmic positions.
+    ax.set_xscale("symlog", linthresh=.75, linscale=.75, base=10)
+    ax.set_xlim(-.15, 120)
     ax.set_ylim(70, 100.5)
     ax.set_xticks(shares)
+    ax.set_xticklabels([str(share) for share in shares])
     ax.set_yticks([70, 75, 80, 85, 90, 95, 100])
     ax.grid(axis="y", color="#D9DDE2", lw=.4, alpha=.8)
     ax.set_axisbelow(True)
