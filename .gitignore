@@ -1,40 +1,56 @@
+# Python caches and local environments
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 venv/
-.env
-outputs/
-datasets/
-.DS_Store
 *.egg-info/
-.pi-runtime-v038/
 
-# LaTeX build products; manuscript sources remain tracked.
-/docs/paper/*.abs
-/docs/paper/*.aux
-/docs/paper/*.fdb_latexmk
-/docs/paper/*.fls
-/docs/paper/*.log
-/docs/paper/*.out
-/docs/paper/*.pdf
+# Local credentials and provider configuration
+.env
+.env.*
+*.local
+*.local.*
+**/config.local.*
+/scripts/slurm/*models*.json
 
-# Generated exports and raster assets for the editable framework figure.
-/docs/paper/pics/framework/assets/
-/docs/paper/pics/framework/nl2hull_framework.png
-/docs/paper/pics/framework/nl2hull_framework.drawio.png
-/docs/paper/pics/framework/nl2hull_framework.svg
-/docs/paper/pics/framework/nl2hull_framework.pdf
+# Local datasets, checkpoints, logs, and generated experiment outputs
+/datasets/
+/outputs/
+/logs/
+/third_party/
 
-# Generated exports for the classic-hull overview figure.
-/visualization/classic_hull_overview/figure1_classic_hull_overview.svg
-/visualization/classic_hull_overview/figure1_classic_hull_overview.pdf
-/visualization/classic_hull_overview/figure1_classic_hull_overview.png
-/visualization/classic_hull_overview/figure1_classic_hull_overview.tiff
+# Research notes and manuscript workspace
+/AGENT.md
+/docs/
 
-# Generated exports for the dataset-distribution figure.
-/visualization/dataset_distribution/figure8/*.png
-/visualization/dataset_distribution/figure8/manifest.json
+# macOS metadata
+.DS_Store
 
-# Generated export for the data-scaling figure.
-/visualization/data_scaling/figure_data_scaling.png
+# LaTeX and other generated build products
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.pdf
+
+# Generated visualization exports
+/visualization/**/figure*.png
+/visualization/**/figure*.pdf
+/visualization/**/figure*.svg
+/visualization/**/figure*.tiff
+/visualization/**/manifest.json
+/visualization/dataset_distribution/figure8/
+/visualization/**/qwen3_embedding_pca_by_source_model.png
