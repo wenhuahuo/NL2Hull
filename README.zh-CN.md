@@ -2,6 +2,8 @@
 
 NL2Hull 面向自然语言驱动的约束船型设计，将船体的 NURBS 表示、自由变形（Free-Form Deformation，FFD）和类型化决策连接起来。
 
+![](assets/nl2hull_framework.png)
+
 ## 项目概览
 
 项目将船舶设计语言离散化，并引入 [Jev-like](https://github.com/jaredpalmer/kev) 决策模型将语义转换为可执行的几何操作，主要包含：
@@ -32,6 +34,8 @@ NURBS 控制点变形
 
 几何表示采用三次 NURBS 水线、艏艉纵剖面、保持对称性的剖面构造和局部平滑影响窗口。评测过程将调用失败、非法概率、格式错误动作和几何失败纳入相应分母。
 
+![](assets/end2end_single.png)
+
 ## 数据集
 
 项目使用十二种归一化经典船型，并进一步构建了 SDD Dataset (Ship Design Decision Dataset) 和 SDDBench ，包含以下数据目录：
@@ -44,7 +48,7 @@ NURBS 控制点变形
 
 船舶设计决策数据集包含 88,604 条训练记录、22,758条验证记录和23,196条测试记录。数据按船型家族划分：训练集使用 DTC、DTMB 5415、KCS、KVLCC2、集装箱船、护卫舰和 NPL 变体；验证集使用 S-175 与 Series 60；测试集使用 Wigley 与 workboat 船型。
 
-`datasets/ship_design_decisions/` 已按后续发布 Hugging Face 数据集的需要整理，清单中记录文件哈希、划分规模、来源记录和清洗过程。
+![](assets/dataset_distribution_radar.png)
 
 ## 快速开始
 

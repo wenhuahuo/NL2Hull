@@ -4,6 +4,8 @@ Natural-language-driven constrained ship-form design with NURBS and free-form de
 
 [中文说明](README.zh-CN.md)
 
+![](assets/nl2hull_framework.png)
+
 ## Overview
 
 NL2Hull discretizes ship-design language and introduces a [Jev-like](https://github.com/jaredpalmer/kev) decision model to map semantics to executable geometric operations. The pipeline combines:
@@ -34,6 +36,8 @@ hull reconstruction and constraint checks
 
 The geometric representation uses cubic NURBS waterlines, fore and aft longitudinal profiles, symmetry-preserving section construction, and smooth local influence windows. The evaluation protocol records failed calls, invalid probabilities, malformed actions, and geometry failures in the relevant denominators.
 
+![](assets/end2end_single.png)
+
 ## Dataset
 
 The project uses twelve normalized classic hull geometries and builds the SDD Dataset (Ship Design Decision Dataset) and SDDBench, with the following data directories:
@@ -46,7 +50,7 @@ The project uses twelve normalized classic hull geometries and builds the SDD Da
 
 The ship-design decision corpus contains 88,604 training records, 22,758 validation records, and 23,196 test records. Its splits are separated by hull family: training uses DTC, DTMB 5415, KCS, KVLCC2, containership, frigate, and NPL variants; validation uses S-175 and Series 60; testing uses Wigley and workboat hulls.
 
-`datasets/ship_design_decisions/` is organized for a future Hugging Face dataset release. The manifests record file hashes, split counts, source records, and cleaning decisions.
+![](assets/dataset_distribution_radar.png)
 
 ## Quick start
 
