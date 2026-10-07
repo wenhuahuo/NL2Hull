@@ -4,7 +4,7 @@ NL2Hull 面向自然语言驱动的约束船型设计，将船体的 NURBS 表�
 
 ## 项目概览
 
-项目将船舶设计语言转换为可执行的几何操作，主要包含：
+项目将船舶设计语言离散化，并引入 [Jev-like](https://github.com/jaredpalmer/kev) 决策模型将语义转换为可执行的几何操作，主要包含：
 
 - 船体水线和艏艉纵剖面的归一化 NURBS 表示；
 - 面向船体区域、操作类型、变形等级和保持约束的类型化决策；
@@ -16,7 +16,7 @@ NL2Hull 面向自然语言驱动的约束船型设计，将船体的 NURBS 表�
 
 ## 方法流程
 
-系统将一条设计请求表示为有序的类型化决策序列。Kev/Jev 风格的决策接口选择动作数量及其属性，FFD 引擎随后在归一化 NURBS 船体上执行这些操作。
+系统将一条设计请求表示为有序的类型化决策序列。Jev 风格的决策接口选择动作数量及其属性，FFD 引擎随后在归一化 NURBS 船体上执行这些操作。
 
 ```text
 自然语言请求
@@ -34,12 +34,12 @@ NURBS 控制点变形
 
 ## 数据集
 
-项目使用十二种归一化经典船型，并维护以下数据目录：
+项目使用十二种归一化经典船型，并进一步构建了 SDD Dataset (Ship Design Decision Dataset) 和 SDDBench ，包含以下数据目录：
 
 - `datasets/classic_hulls/`：原始与标准化船体几何、元数据和基准清单；
 - `datasets/ship_design_structured_actions/`：30,000 条程序生成的结构化 FFD 动作；
-- `datasets/ship_design_decisions/`：134,558 条清洗后的语言—决策记录，包含训练集、验证集、测试集和固定的 `test_5k` 子集；
-- `datasets/jevbench/`：评测协议使用的固定 JevBench 公共文件；
+- `datasets/ship_design_decisions/`：134,558 条清洗后的语言—决策记录，包含训练集、验证集、测试集和 SDDBench；
+- `datasets/jevbench/`：评测协议使用的固定 [JevBench](https://github.com/fstandhartinger/jevbench)；
 - `datasets/kev_decision_v7/`：Kev decision-v7 上游数据集，用于原始预训练阶段。
 
 船舶设计决策数据集包含 88,604 条训练记录、22,758条验证记录和23,196条测试记录。数据按船型家族划分：训练集使用 DTC、DTMB 5415、KCS、KVLCC2、集装箱船、护卫舰和 NPL 变体；验证集使用 S-175 与 Series 60；测试集使用 Wigley 与 workboat 船型。
@@ -93,12 +93,6 @@ visualization/                  论文图片与诊断图生成
 datasets/                       本地数据与清单
 outputs/                        本地实验输出
 ```
-
-## 论文与复现
-
-论文工作目录为 `docs/paper/`，图片集中在 `docs/paper/pics/`，因此 LaTeX 源文件在制作 arXiv 压缩包和后续投稿材料时使用统一的本地图片路径。当前保留一份主论文源文件；当投稿期刊要求不同模板时，再增加对应的模板封装或元数据文件。
-
-实验输出中的清单记录数据哈希、代码版本、模型信息和评测状态。结合固定数据划分与这些清单，可以复现论文中的实验结果。
 
 ## 引用
 
