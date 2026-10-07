@@ -6,7 +6,7 @@ Natural-language-driven constrained ship-form design with NURBS and free-form de
 
 ## Overview
 
-NL2Hull connects ship-design language with executable geometric operations. The pipeline combines:
+NL2Hull discretizes ship-design language and introduces a [Jev-like](https://github.com/jaredpalmer/kev) decision model to map semantics to executable geometric operations. The pipeline combines:
 
 - normalized NURBS representations for ship waterlines and longitudinal profiles;
 - typed decisions over hull regions, operations, magnitude levels, and preservation constraints;
@@ -18,7 +18,7 @@ The repository provides the geometric engine, structured-action data pipeline, d
 
 ## Method
 
-A design request is represented as an ordered sequence of typed decisions. A Kev/Jev-style decision interface selects the action count and action attributes, then the FFD engine applies the selected operations to a normalized NURBS hull.
+A design request is represented as an ordered sequence of typed decisions. A Jev-style decision interface selects the action count and action attributes, then the FFD engine applies the selected operations to a normalized NURBS hull.
 
 ```text
 Natural-language request
@@ -36,12 +36,12 @@ The geometric representation uses cubic NURBS waterlines, fore and aft longitudi
 
 ## Dataset
 
-The project uses twelve normalized classic hull geometries and a ship-design decision corpus:
+The project uses twelve normalized classic hull geometries and builds the SDD Dataset (Ship Design Decision Dataset) and SDDBench, with the following data directories:
 
 - `datasets/classic_hulls/`: source and canonical hull geometries with metadata and benchmark manifests;
 - `datasets/ship_design_structured_actions/`: 30,000 programmatically generated structured FFD actions;
-- `datasets/ship_design_decisions/`: 134,558 cleaned language–decision records with train, validation, test, and frozen `test_5k` splits;
-- `datasets/jevbench/`: pinned public JevBench files used by the comparison protocol;
+- `datasets/ship_design_decisions/`: 134,558 cleaned language–decision records with train, validation, test, and SDDBench splits;
+- `datasets/jevbench/`: the pinned [JevBench](https://github.com/fstandhartinger/jevbench) used by the comparison protocol;
 - `datasets/kev_decision_v7/`: the pinned upstream Kev decision-v7 suite used for the original pretraining stage.
 
 The ship-design decision corpus contains 88,604 training records, 22,758 validation records, and 23,196 test records. Its splits are separated by hull family: training uses DTC, DTMB 5415, KCS, KVLCC2, containership, frigate, and NPL variants; validation uses S-175 and Series 60; testing uses Wigley and workboat hulls.
@@ -95,12 +95,6 @@ visualization/                  paper and diagnostic figure generation
 datasets/                       local data and manifests
 outputs/                        local experiment outputs
 ```
-
-## Paper and reproducibility
-
-The local manuscript workspace is `docs/paper/`. Its figures are collected under `docs/paper/pics/`, so the LaTeX source uses repository-local paths during arXiv packaging and later venue submission. The arXiv package and a subsequent journal package can share this canonical manuscript source; a venue-specific wrapper or metadata file can be added when the target venue requires a different template.
-
-Experiment outputs contain manifests with dataset hashes, code revisions, model information, and evaluation status. Use those manifests together with the frozen dataset splits to reproduce reported results.
 
 ## Citation
 
