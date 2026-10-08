@@ -8,18 +8,17 @@ from pathlib import Path
 from typing import Any
 
 import gradio as gr
-import matplotlib
+import numpy as np
+import plotly.graph_objects as go
+from scipy.spatial import ConvexHull
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-from benchmarks.unified_action import actions_from_kev
+from end2end.actions import executable_actions
 from end2end.pipeline import run_turns
 from end2end.state import load_hull_state
-from end2end.actions import executable_actions
 from kev.checkpoint import LoadOptions
 from kev.predictors import LocalPredictor
 from kev.suite import SERVING_CONTEXT
+from nurbs_ship_reconstruction.core.geometry import skin_waterlines
 
 
 MODEL_ID = "wenhuahuo/chip-0.8b"
@@ -64,6 +63,7 @@ PREDICTOR = LocalPredictor(
     context=SERVING_CONTEXT,
 )
 BASE_WATERLINES, _ = load_hull_state(HULL_STATE)
+BASE_MESH = skin_waterlines(BASE_WATERLINES, samples=48)
 
 
 def _question(
@@ -148,25 +148,153 @@ def _argmax(values: dict[str, float]) -> str:
     return max(values, key=values.get)
 
 
-def _plot_waterlines(before: list[Any], after: list[Any], path: Path) -> None:
-    figure, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
-    for axis, waterlines, title in (
-        (axes[0], before, "Before"),
-        (axes[1], after, "After"),
-    ):
-        for waterline in waterlines:
-            axis.plot(waterline.x, waterline.width, color="#1769aa", linewidth=0.8)
-            axis.plot(waterline.x, -waterline.width, color="#1769aa", linewidth=0.8)
-        axis.set_title(title)
-        axis.set_xlabel("x")
-        axis.set_ylabel("half-breadth")
-        axis.set_aspect("equal", adjustable="datalim")
-        axis.grid(alpha=0.25)
-    figure.savefig(path, dpi=150)
-    plt.close(figure)
+def _mesh_trace(mesh: Any, name: str, color: str, opacity: float) -> go.Mesh3d:
+    vertices = np.asarray(mesh.vertices)
+    faces = np.asarray(mesh.faces)
+    return go.Mesh3d(
+        x=vertices[:, 0],
+        y=vertices[:, 1],
+        z=vertices[:, 2],
+        i=faces[:, 0],
+        j=faces[:, 1],
+        k=faces[:, 2],
+        name=name,
+        color=color,
+        opacity=opacity,
+        flatshading=True,
+        lighting={"ambient": 0.55, "diffuse": 0.8, "specular": 0.25, "roughness": 0.65},
+        hoverinfo="skip",
+    )
 
 
-def run_demo(request: str) -> tuple[str | None, str, str | None]:
+def _mesh_figure(mesh: Any, title: str, original: Any | None = None) -> go.Figure:
+    figure = go.Figure()
+    if original is not None:
+        figure.add_trace(_mesh_trace(original, "Original", "#64748b", 0.28))
+    figure.add_trace(_mesh_trace(mesh, title, "#1769aa", 0.82 if original is not None else 0.95))
+    figure.update_layout(
+        height=360,
+        margin={"l": 0, "r": 0, "t": 32, "b": 0},
+        title=title,
+        showlegend=original is not None,
+        scene={
+            "xaxis_title": "x",
+            "yaxis_title": "y",
+            "zaxis_title": "z",
+            "aspectmode": "data",
+            "camera": {"eye": {"x": 1.45, "y": 1.45, "z": 0.95}},
+            "dragmode": "orbit",
+        },
+    )
+    return figure
+
+
+def _projection_polygon(mesh: Any, axes: tuple[int, int]) -> np.ndarray:
+    points = np.asarray(mesh.vertices)[:, list(axes)]
+    boundary = points[ConvexHull(points).vertices]
+    return np.vstack([boundary, boundary[0]])
+
+
+def _projection_trace(
+    mesh: Any,
+    axes: tuple[int, int],
+    name: str,
+    color: str,
+    *,
+    fill: str,
+    dash: str = "solid",
+    opacity: float = 1.0,
+) -> go.Scatter:
+    polygon = _projection_polygon(mesh, axes)
+    return go.Scatter(
+        x=polygon[:, 0],
+        y=polygon[:, 1],
+        mode="lines",
+        name=name,
+        line={"color": color, "width": 2, "dash": dash},
+        fill="toself" if fill != "none" else None,
+        fillcolor=color if fill != "none" else None,
+        opacity=opacity,
+        hoverinfo="skip",
+    )
+
+
+def _projection_figure(
+    mesh: Any,
+    title: str,
+    axes: tuple[int, int],
+    axis_titles: tuple[str, str],
+    original: Any | None = None,
+) -> go.Figure:
+    figure = go.Figure()
+    if original is not None:
+        figure.add_trace(
+            _projection_trace(
+                original,
+                axes,
+                "Original",
+                "#64748b",
+                fill="none",
+                dash="dash",
+                opacity=0.95,
+            )
+        )
+    figure.add_trace(
+        _projection_trace(
+            mesh,
+            axes,
+            title,
+            "#1769aa",
+            fill="solid",
+            opacity=0.48 if original is not None else 0.8,
+        )
+    )
+    figure.update_layout(
+        height=280,
+        margin={"l": 48, "r": 12, "t": 32, "b": 42},
+        title=title,
+        showlegend=original is not None,
+        xaxis={"title": axis_titles[0], "scaleanchor": "y", "scaleratio": 1},
+        yaxis={"title": axis_titles[1]},
+    )
+    return figure
+
+
+def _render_views(base_mesh: Any, modified_mesh: Any, show_diff: bool) -> tuple[go.Figure, ...]:
+    original = base_mesh if show_diff else None
+    return (
+        _mesh_figure(base_mesh, "Original 3D model"),
+        _mesh_figure(modified_mesh, "Modified 3D model", original),
+        _projection_figure(base_mesh, "Original side view", (0, 2), ("x", "z")),
+        _projection_figure(modified_mesh, "Modified side view", (0, 2), ("x", "z"), original),
+        _projection_figure(base_mesh, "Original top view", (0, 1), ("x", "y")),
+        _projection_figure(modified_mesh, "Modified top view", (0, 1), ("x", "y"), original),
+    )
+
+
+def _update_diff(view_state: dict[str, Any] | None, show_diff: bool) -> tuple[go.Figure | None, ...]:
+    if view_state is None:
+        return (None, None, None)
+    return (
+        _mesh_figure(view_state["modified_mesh"], "Modified 3D model", view_state["base_mesh"] if show_diff else None),
+        _projection_figure(
+            view_state["modified_mesh"],
+            "Modified side view",
+            (0, 2),
+            ("x", "z"),
+            view_state["base_mesh"] if show_diff else None,
+        ),
+        _projection_figure(
+            view_state["modified_mesh"],
+            "Modified top view",
+            (0, 1),
+            ("x", "y"),
+            view_state["base_mesh"] if show_diff else None,
+        ),
+    )
+
+
+def run_demo(request: str, show_diff: bool) -> tuple[Any, ...]:
     request = request.strip()
     if not request:
         raise gr.Error("请输入船型设计请求。")
@@ -200,16 +328,18 @@ def run_demo(request: str) -> tuple[str | None, str, str | None]:
         "constraints_satisfied": result.get("constraints_satisfied"),
         "final_metrics": result.get("final_metrics"),
     }
+    summary_text = json.dumps(summary, ensure_ascii=False, indent=2)
 
     if result["status"] != "completed":
-        return None, json.dumps(summary, ensure_ascii=False, indent=2), None
+        return (None, None, None, None, None, None, summary_text, None, None)
 
+    modified_mesh = skin_waterlines(result["final_waterlines"], samples=48)
+    views = _render_views(BASE_MESH, modified_mesh, show_diff)
     output_dir = Path(tempfile.mkdtemp(prefix="nl2hull_demo_"))
-    image_path = output_dir / "kvlcc2_before_after.png"
     result_path = output_dir / "nl2hull_result.json"
-    _plot_waterlines(BASE_WATERLINES, result["final_waterlines"], image_path)
-    result_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    return str(image_path), json.dumps(summary, ensure_ascii=False, indent=2), str(result_path)
+    result_path.write_text(summary_text, encoding="utf-8")
+    view_state = {"base_mesh": BASE_MESH, "modified_mesh": modified_mesh}
+    return (*views, summary_text, str(result_path), view_state)
 
 
 with gr.Blocks(title="NL2Hull Demo") as demo:
@@ -225,11 +355,54 @@ with gr.Blocks(title="NL2Hull Demo") as demo:
         value="将舭部区域大幅上抬。",
         lines=3,
     )
+    show_diff = gr.Checkbox(
+        label="在修改后的三维模型、侧视图和顶视图中叠加原始船型",
+        value=True,
+    )
     run_button = gr.Button("运行 NL2Hull", variant="primary")
-    image = gr.Image(label="KVLCC2 水线变形前后对比", type="filepath")
+    view_state = gr.State()
+
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown("### 原始船型 · 三维模型")
+            original_3d = gr.Plot(show_label=False)
+        with gr.Column():
+            gr.Markdown("### 修改后船型 · 三维模型")
+            modified_3d = gr.Plot(show_label=False)
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown("### 原始船型 · 侧视图")
+            original_side = gr.Plot(show_label=False)
+        with gr.Column():
+            gr.Markdown("### 修改后船型 · 侧视图")
+            modified_side = gr.Plot(show_label=False)
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown("### 原始船型 · 顶视图")
+            original_top = gr.Plot(show_label=False)
+        with gr.Column():
+            gr.Markdown("### 修改后船型 · 顶视图")
+            modified_top = gr.Plot(show_label=False)
+
     result = gr.Code(label="推理与几何评估结果", language="json")
     download = gr.File(label="下载 JSON 结果")
-    run_button.click(run_demo, inputs=request, outputs=[image, result, download])
+    outputs = [
+        original_3d,
+        modified_3d,
+        original_side,
+        modified_side,
+        original_top,
+        modified_top,
+        result,
+        download,
+        view_state,
+    ]
+    run_button.click(run_demo, inputs=[request, show_diff], outputs=outputs)
+    show_diff.change(
+        _update_diff,
+        inputs=[view_state, show_diff],
+        outputs=[modified_3d, modified_side, modified_top],
+    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 gradio>=5.0
 httpx[socks]>=0.28
 matplotlib>=3.7
+plotly>=6.0
 trimesh>=4.0
 
 # The demo uses the pinned public project code and the upstream Kev inference loader.
