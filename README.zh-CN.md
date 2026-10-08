@@ -16,6 +16,10 @@ NL2Hull 面向自然语言驱动的约束船型设计，将船体的 NURBS 表�
 
 英文主说明见 [README.md](README.md)。
 
+[![arXiv](https://img.shields.io/badge/arXiv-2610.09896-b31b1b.svg)](https://arxiv.org/abs/2610.09896)
+[![Chip-0.8B](https://img.shields.io/badge/%F0%9F%A4%97%20Model-Chip--0.8B-yellow)](https://huggingface.co/wenhuahuo/chip-0.8b)
+[![Ship Design Decision Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-Ship%20Design%20Decisions-blue)](https://huggingface.co/datasets/wenhuahuo/ship-design-decisions)
+
 ## 方法流程
 
 系统将一条设计请求表示为有序的类型化决策序列。Jev 风格的决策接口选择动作数量及其属性，FFD 引擎随后在归一化 NURBS 船体上执行这些操作。
@@ -100,4 +104,18 @@ outputs/                        本地实验输出
 
 ## 引用
 
-arXiv 记录和仓库元数据确定后补充正式引用信息。
+- 论文：[NL2Hull（arXiv）](https://arxiv.org/abs/2610.09896)
+- 模型：[wenhuahuo/chip-0.8b](https://huggingface.co/wenhuahuo/chip-0.8b)
+- 数据集：[wenhuahuo/ship-design-decisions](https://huggingface.co/datasets/wenhuahuo/ship-design-decisions)
+
+```bibtex
+@article{huo2026nl2hull,
+  title         = {NL2Hull: A Natural Language-Driven Constrained Ship Design Decision Framework},
+  author        = {Huo, Wenhua and Han, Fenglei and Zhao, Wangyuan and Wu, Jialin and Han, Jiayi},
+  year          = {2026},
+  eprint        = {2610.09896},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2610.09896}
+}
+```

@@ -4,6 +4,10 @@ Natural-language-driven constrained ship-form design with NURBS and free-form de
 
 [中文说明](README.zh-CN.md)
 
+[![arXiv](https://img.shields.io/badge/arXiv-2610.09896-b31b1b.svg)](https://arxiv.org/abs/2610.09896)
+[![Chip-0.8B](https://img.shields.io/badge/%F0%9F%A4%97%20Model-Chip--0.8B-yellow)](https://huggingface.co/wenhuahuo/chip-0.8b)
+[![Ship Design Decision Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-Ship%20Design%20Decisions-blue)](https://huggingface.co/datasets/wenhuahuo/ship-design-decisions)
+
 ![](assets/nl2hull_framework.png)
 
 ## Overview
@@ -102,4 +106,18 @@ outputs/                        local experiment outputs
 
 ## Citation
 
-The paper citation will be added after the arXiv record and repository metadata are finalized.
+- Paper: [NL2Hull on arXiv](https://arxiv.org/abs/2610.09896)
+- Model: [wenhuahuo/chip-0.8b](https://huggingface.co/wenhuahuo/chip-0.8b)
+- Dataset: [wenhuahuo/ship-design-decisions](https://huggingface.co/datasets/wenhuahuo/ship-design-decisions)
+
+```bibtex
+@article{huo2026nl2hull,
+  title         = {NL2Hull: A Natural Language-Driven Constrained Ship Design Decision Framework},
+  author        = {Huo, Wenhua and Han, Fenglei and Zhao, Wangyuan and Wu, Jialin and Han, Jiayi},
+  year          = {2026},
+  eprint        = {2610.09896},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2610.09896}
+}
+```
