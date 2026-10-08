@@ -88,6 +88,31 @@ Run the automated tests:
 python -m pytest
 ```
 
+## Interactive Demo
+
+The local Gradio demo uses Chip-0.8B to predict typed ship-design decisions and applies them to the bundled KVLCC2 hull. It displays draggable 3D models, side and top views, and an optional original-model overlay.
+
+Create and configure the demo environment:
+
+```bash
+conda create -n nl2hull-demo python=3.12 -y
+conda activate nl2hull-demo
+python -m pip install -r src/demo/requirements.txt
+```
+
+Start the demo from the repository root:
+
+```bash
+export PYTHONPATH="$PWD/src"
+export KEV_DTYPE=fp32
+export KEV_BACKEND=torch
+export KEV_ATTN=eager
+export NL2HULL_DEVICE=cpu
+python src/demo/app.py
+```
+
+Open `http://127.0.0.1:7860` in a browser. You can enter a Chinese design request or click one of the suggested requests below the input box. The first startup downloads the public Chip checkpoint and its Qwen base model.
+
 ## Repository layout
 
 ```text

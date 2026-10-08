@@ -86,6 +86,31 @@ python -m nurbs_ship_reconstruction.cli \
 python -m pytest
 ```
 
+## 交互式 Demo
+
+本地 Gradio Demo 使用 Chip-0.8B 预测类型化船型设计决策，并将决策应用于内置的 KVLCC2 船型。Demo 提供可拖动的三维模型、侧视图、顶视图以及可选的原始船型叠加对比。
+
+创建并配置 Demo 环境：
+
+```bash
+conda create -n nl2hull-demo python=3.12 -y
+conda activate nl2hull-demo
+python -m pip install -r src/demo/requirements.txt
+```
+
+在项目根目录启动 Demo：
+
+```bash
+export PYTHONPATH="$PWD/src"
+export KEV_DTYPE=fp32
+export KEV_BACKEND=torch
+export KEV_ATTN=eager
+export NL2HULL_DEVICE=cpu
+python src/demo/app.py
+```
+
+浏览器打开 `http://127.0.0.1:7860`。可以直接输入中文船型设计请求，也可以点击输入框下方的自然语言候选。首次启动会下载公开的 Chip 模型及其 Qwen 基础模型。
+
 ## 目录结构
 
 ```text
