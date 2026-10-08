@@ -18,7 +18,6 @@ from end2end.pipeline import run_turns
 from end2end.state import load_hull_state
 from end2end.actions import executable_actions
 from kev.checkpoint import LoadOptions
-from kev.data import materialize
 from kev.predictors import LocalPredictor
 from kev.suite import SERVING_CONTEXT
 
@@ -142,7 +141,7 @@ def _record(request: str, action_slots: int) -> dict[str, Any]:
 
 
 def _predict(record: dict[str, Any]) -> dict[str, Any]:
-    return PREDICTOR(materialize(record))
+    return PREDICTOR(record)
 
 
 def _argmax(values: dict[str, float]) -> str:
