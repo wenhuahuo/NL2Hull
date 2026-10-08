@@ -355,6 +355,21 @@ with gr.Blocks(title="NL2Hull Demo") as demo:
         value="将舭部区域大幅上抬。",
         lines=3,
     )
+    gr.Examples(
+        examples=[
+            ["将球鼻艏长度非常明显地增加"],
+            ["将甲板稍微后移"],
+            ["将全船长度非常大幅地增加"],
+        ],
+        example_labels=[
+            "1. 将球鼻艏长度非常明显地增加",
+            "2. 将甲板稍微后移",
+            "3. 将全船长度非常大幅地增加",
+        ],
+        inputs=request,
+        label="自然语言候选（点击即可填入）",
+        examples_per_page=3,
+    )
     show_diff = gr.Checkbox(
         label="在修改后的三维模型、侧视图和顶视图中叠加原始船型",
         value=True,
