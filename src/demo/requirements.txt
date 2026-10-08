@@ -1,0 +1,7 @@
+gradio>=5.0
+matplotlib>=3.7
+trimesh>=4.0
+
+# The demo uses the pinned public project code and the upstream Kev inference loader.
+git+https://github.com/wenhuahuo/NL2Hull.git@4f4f56510de5f5c1b09a15ab65e9fdcc3f2926a8
+git+https://github.com/jaredpalmer/kev.git@5e42a7a03f28134853dd3ff77461457e921e5ec1
