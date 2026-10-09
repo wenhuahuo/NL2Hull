@@ -21,6 +21,7 @@ venv/
 /third_party/
 
 # Research notes and manuscript workspace
+/AGENT.md
 /docs/
 
 # macOS metadata
